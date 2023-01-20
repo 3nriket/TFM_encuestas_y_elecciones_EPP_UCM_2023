@@ -776,8 +776,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   # PREDICCIONES EN TEST =========================================================
   arbol_ganador <- rpart(errores~ ., 
                    data = train_semma ,#Recordemos que en data teníamos los dummy por lo que relanzamos el modelo ganador sobre el auténtico train. 
-                   minbucket=36, # (complejidad) número de observaciones mínimas en cada nodo final.BAJO = sobreajuste ; ALTO = error 
-                   cp=0.00012212, # segundo término de complejidad con el que no procedemos pues no es común. Fijamos a 0. 
+                   minbucket=2, # (complejidad) número de observaciones mínimas en cada nodo final.BAJO = sobreajuste ; ALTO = error 
+                   cp=0, # segundo término de complejidad con el que no procedemos pues no es común. Fijamos a 0. 
                    method = "anova", # criterio de división. Con “annova” usamos F de Snedecor, prioriza la variable que hace variar más la media de la variable dependiente.
                    maxsurrogate=0 # si no hay muchos missings, a 0 enseña solo las variables que participan
   )
@@ -805,7 +805,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   # Predecimos en test con el modelo seleccionado
   prediccion <- predict(arbol_ganador, newdata = test_semma) #hacemos las predicciones sobre test; recordemos que en test no hay dummies. 
   prediccion <- as.data.frame(prediccion)#guardamos las predicciones en test
-  # saveRDS(prediccion, "prediccion_arbol")
+  saveRDS(prediccion, "prediccion_arbol")
   
   # Al no tener el id_semma añadimos un id por el row name que R define por defecto
   obs_test<-tibble::rowid_to_column(test_semma, "ID")
@@ -924,7 +924,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   
     eval_test_arbol_party2 <- eval_test_arbol_party %>% select(
                                  "year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                 "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                 "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                  "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                  "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                  "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1016,14 +1016,31 @@ simple_cross_validation <- function(list_of_minbucket) {
     eval_test_arbol_party<-eval_test_arbol_party[!duplicated(eval_test_arbol_party), ]
     eval_test_arbol_party$prediccion_de_partido <- round(eval_test_arbol_party$prediccion_de_partido ,digit=2) # Round off the column for 2 decimal
     
+    eval_test_arbol_party_mae <- eval_test_arbol_party %>% 
+      mutate(mae_arbol = abs(prediccion_de_partido - real_vote)) %>% 
+    mutate(mae_prom = abs(prom_carrera_partido - real_vote))
+   print(skim(eval_test_arbol_party_mae))
+    
     # install.packages("CGPfunctions")
     library(CGPfunctions)
     newggslopegraph(eval_test_arbol_party, date_elec, prediccion_de_partido, party,
                     Title = "Evolución del PIB",
                     SubTitle = "1982-2019",
-                    Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset") +
-      theme_gray() +
-      theme(legend.position = "none")
+                    Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
+      DataLabelPadding = 0.2,
+    DataLabelLineSize = 0.5,
+    DataLabelFillColor = "white") +
+  theme_gray() +
+  scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
+                                "palegreen3", "orange3",  "orange", "red",
+                                "grey", "yellow",  "gold3", "lightblue3", 
+                                "darkblue", "darkred",  "darkgreen", "yellow", 
+                                "darkolivegreen3", "orchid3",  "steelblue", "red",
+                                "darkmagenta", "#FF3E96",  "green2", "limegreen"
+  ))+
+  theme(legend.position = "none")
+    
+    eval_test_arbol_party <- eval_test_arbol_party%>% filter(!(party == "EH.BILDU" ),)
 
     carreras <- split(eval_test_arbol_party, eval_test_arbol_party$date_elec)
     eval_test_arbol_party_2019_11 <-carreras[["2019-11-10"]]
@@ -1033,8 +1050,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                        y = party, yend = party)) +
       geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
       geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-11-10)")+
+      geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                       y = party, yend = party)) +
+      geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+      geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-11-10)")+
       theme(legend.position = "bottom")
+    a
     
     eval_test_arbol_party_2019_04 <-carreras[["2019-04-28"]]
     
@@ -1043,8 +1065,14 @@ simple_cross_validation <- function(list_of_minbucket) {
                        y = party, yend = party)) +
       geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
       geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-04-28)")+
+      geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                       y = party, yend = party)) +
+      geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+      geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-04-28)")+
       theme(legend.position = "bottom")
+    b
+
     
     eval_test_arbol_party_2016 <-carreras[["2016-06-26"]]
     
@@ -1053,8 +1081,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                        y = party, yend = party)) +
       geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
       geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2016-06-26)")+
+      geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                       y = party, yend = party)) +
+      geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+      geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2016-06-26)")+
       theme(legend.position = "bottom")
+    c
     
     eval_test_arbol_party_2015 <-carreras[["2015-12-20"]]
     
@@ -1063,12 +1096,22 @@ simple_cross_validation <- function(list_of_minbucket) {
                        y = party, yend = party)) +
       geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
       geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2015-12-20)")+
+      geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                       y = party, yend = party)) +
+      geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+      geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+      theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2015-12-20)")+
       theme(legend.position = "bottom")
+    d
     
     comparativa_test_arbol <- ggarrange(a, b, c, d,
                                  ncol = 2, nrow = 2)
     comparativa_test_arbol
+    
+    eval_test_arbol_party <- eval_test_arbol_party %>% 
+      mutate(error_abs = abs(prom_carrera_partido - real_vote)) %>%# Error del modelo
+      mutate(mae_arbol = mean(abs(prom_carrera_partido - real_vote))
+             
     
     
   # PREDICCIONES EN TEST 2023 =========================================================
@@ -1146,10 +1189,46 @@ simple_cross_validation <- function(list_of_minbucket) {
                          str_detect(poll_firm_VOX_PÚBLICA, "1") ~"VOX_PÚBLICA",
                          TRUE ~ "OTRAS"))
     
+    eval_test_arbol_2023_graf <- sqldf('
+      SELECT *
+      FROM eval_test_arbol_2023
+      WHERE urna_365 = 1
+      AND n > 30
+      AND n_days_field >= 4
+                        ')
+    
+    eval_test_arbol_2023_party<-eval_test_arbol_2023_graf[!duplicated(eval_test_arbol_2023_graf), ]
     eval_test_arbol_2023_party <- select(eval_test_arbol_2023, party, est_real_vote)
     eval_test_arbol_2023_party <- group_by(eval_test_arbol_2023_party, party) 
     eval_test_arbol_2023_party <- eval_test_arbol_2023_party %>% 
       summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+    ggplot() +
+      geom_col(data = eval_test_arbol_2023_graf %>% group_by(party) %>% 
+                 summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+                 mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+               aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+      geom_jitter(data = eval_test_arbol_2023_graf 
+                  ,
+                  aes(x = party, y = est_surv_vote, fill = party),
+                  width = 0.2,
+                  shape = 21, color = "grey", size = 2,
+                  alpha = 0.95, show.legend = FALSE) +
+      geom_jitter(data=eval_test_arbol_2023_party, 
+                 aes(x = party, y = prediccion_de_partido, fill = party),
+                 color = "black", shape = 21, size = 2, alpha = 1, show.legend = FALSE)+
+      scale_y_continuous(breaks = seq(0, 35, by = 5),
+                         labels = scales::label_percent(scale = 1)) +
+      scale_fill_manual(values =
+                          c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+      scale_color_manual(values =
+                           c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+      theme_minimal() +
+      labs(x = "Partido político", y = "Porcentaje de voto estimado",
+           Title = "Estimaciones a menos de 365 días de las elecciones",
+           fill = "Partidos",
+           caption = "Autor: Enric Palau Payeras")
+    
+    
     
   eval_test_arbol_2023_party <- eval_test_arbol_2023_party %>% 
       mutate(partido_estimación =
@@ -1267,7 +1346,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_bag_arbol_1<-cruzadarf(data = train_semma, 
                                   vardep="errores",
                                   listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                              "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                              "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                               "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                               "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                               "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1312,7 +1391,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_bag_arbol_1_OBB<-cruzadarf(data = train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                   "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1383,7 +1462,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_rf_bag_arbol_1<-cruzadarf(data = train_semma,
                                      vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                              "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                              "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                               "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                               "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                               "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1430,7 +1509,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_rf_bag_arbol_1_btp<-cruzadarf(data = train_semma,
                                          vardep="errores",
                                          listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                     "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                     "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                      "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                      "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                      "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1586,7 +1665,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_2<-cruzadarf(data= train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                   "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1631,7 +1710,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_2_OOB<-cruzadarf(data = train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                   "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1677,7 +1756,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_2<-cruzadarf(data = train_semma,
                                          vardep="errores",
                                          listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                     "n",  "est_surv_vote", "prom_general_partido", "error_general_partido", 
+                                                     "n", "exit_poll", "est_surv_vote", "prom_general_partido", "error_general_partido", 
                                                      "prom_general_wing", "error_general_wing", "prom_casa_partido", 
                                                      "error_casa_partido", "prom_casa_wing", "error_casa_wing", "prom_carrera_partido", 
                                                      "error_carrera_partido", "prom_carrera_wing", "error_carrera_wing", 
@@ -1727,7 +1806,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_2_btp<-cruzadarf(data = train_semma,
                                              vardep="errores",
                                              listconti = c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                           "n",  "est_surv_vote", "prom_general_partido", "error_general_partido", 
+                                                           "n", "exit_poll", "est_surv_vote", "prom_general_partido", "error_general_partido", 
                                                            "prom_general_wing", "error_general_wing", "prom_casa_partido", 
                                                            "error_casa_partido", "prom_casa_wing", "error_casa_wing", "prom_carrera_partido", 
                                                            "error_carrera_partido", "prom_carrera_wing", "error_carrera_wing", 
@@ -1820,7 +1899,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_3<-cruzadarf(data= train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                   "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1866,7 +1945,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_3_OOB<-cruzadarf(data = train_semma, 
                                           vardep="errores",
                                           listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                      "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                      "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                       "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                       "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                       "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1941,7 +2020,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_3_vars<-cruzadarf(data = train_semma, 
                                            vardep="errores",
                                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                       "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                        "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                        "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                        "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -1987,7 +2066,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_3<-cruzadarf(data = train_semma,
                                          vardep="errores",
                                          listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                                 "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                                 "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                                  "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                                  "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                                  "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -2035,7 +2114,7 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_3_btp<-cruzadarf(data = train_semma,
                                              vardep="errores",
                                              listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                          "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -2284,7 +2363,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     
     
     eval_test_bag_party2 <- eval_test_bag_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                               "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                               "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                                "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                                "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                                "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -2467,7 +2546,10 @@ simple_cross_validation <- function(list_of_minbucket) {
   eval_test_rf <- left_join(obs_test, pred_test, by = "ID") %>%
     mutate(error = prediccion - errores ) %>% # Error del modelo
     mutate(real_vote = est_surv_vote + errores ) %>% # Error de las encuestas (error real)
-    mutate(est_real_vote = est_surv_vote + prediccion ) # Estimación de voto del modelo o corrección del modelo aplicada a la encuesta
+    mutate(est_real_vote = est_surv_vote + prediccion ) %>% 
+    mutate(mae_rf = mean(abs(prediccion - errores)) ) %>%
+    mutate(rmse_rf =  sqrt(mean((prediccion - errores)^2)) ) %>% 
+    mutate(r_cua_rf = 1 - sum(error^2)/sum((errores - mean(errores))^2))# Estimación de voto del modelo o corrección del modelo aplicada a la encuesta
   # write_csv(eval_test_rf, file = "./EXPORTADO/eval_test_rf.csv")
   
   # gráfico de error real y error del modelo
@@ -2545,22 +2627,220 @@ simple_cross_validation <- function(list_of_minbucket) {
                        str_detect(poll_firm_SOCIOMÉTRICA, "1") ~"SOCIOMÉTRICA",
                        str_detect(poll_firm_TNS_DEMOSCOPIA, "1") ~"TNS_DEMOSCOPIA",
                        str_detect(poll_firm_VOX_PÚBLICA, "1") ~"VOX_PÚBLICA",
+                       TRUE ~ "OTRAS")) %>% 
+    mutate(lead_party =
+             case_when(str_detect(lead_party_CS, "1") ~ "CS",
+                       str_detect(lead_party_PODEMOS, "1") ~ "PODEMOS",
+                       str_detect(lead_party_PP, "1") ~"PP",
+                       str_detect(lead_party_PSOE, "1") ~"PSOE",
+                       str_detect(lead_party_UCD, "1") ~"UCD",
+                       TRUE ~ "OTRAS")) %>% 
+    mutate(lead2_party =
+             case_when(str_detect(lead2_party_AP, "1") ~ "AP",
+                       str_detect(lead2_party_ARM, "1") ~ "ARM",
+                       str_detect(lead2_party_CS, "1") ~"CS",
+                       str_detect(lead2_party_EA, "1") ~"EA",
+                       str_detect(lead2_party_PODEMOS, "1") ~"PODEMOS",
+                       str_detect(lead2_party_PP, "1") ~ "PP",
+                       str_detect(lead2_party_PSOE, "1") ~ "PSOE",
+                       str_detect(lead2_party_UCD, "1") ~"UCD",
+                       str_detect(lead2_party_UP, "1") ~"UP",
+                       str_detect(lead2_party_VOX, "1") ~"VOX",
+                       TRUE ~ "OTRAS")) %>% 
+    mutate(gov_pre =
+             case_when(str_detect(gov_pre_PP, "1") ~ "PP",
+                       str_detect(gov_pre_PSOE, "1") ~ "PSOE",
+                       str_detect(gov_pre_UCD, "1") ~"UCD",
                        TRUE ~ "OTRAS"))
   
   
-  semma_id <- semma %>% select(party, poll_firm, year_elec, n_days_field, days_to_elec, n, est_surv_vote, date_elec) #semma lo necesario
-  eval_test_rf_party <- left_join(eval_test_rf_party, semma_id, by=c('party'='party', 
-                                                                       'poll_firm'='poll_firm',
-                                                                       "n_days_field"="n_days_field",
-                                                                       "days_to_elec"="days_to_elec",
-                                                                       "n"="n",
-                                                                       "year_elec"="year_elec",
-                                                                       "est_surv_vote"="est_surv_vote"))
+  eval_test_rf_party2 <- eval_test_rf_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
+                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
+                                                         "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
+                                                         "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                         "urna_60", "urna_365", 
+                                                         "errores", "party", "poll_firm", 
+                                                         "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote") 
+  
+  semma_id <-
+    semma %>% 
+    mutate(id_fin =
+             glue("{year_elec}_{n_days_field}_{days_to_elec}_{n}_{party}_{poll_firm}")) 
+  semma_id <-
+    semma_id %>% 
+    mutate(id_fin = as.character(id_fin))
+  
+  eval_test_rf_party2 <-
+    eval_test_rf_party2 %>% 
+    mutate(id_fin =
+             glue("{year_elec}_{n_days_field}_{days_to_elec}_{n}_{party}_{poll_firm}")) 
+  
+  eval_test_rf_party2 <-
+    eval_test_rf_party2 %>% 
+    mutate(id_fin = as.character(id_fin))
+  
+  eval_test_rf_party3 <- sqldf('
+      SELECT a.* 
+           , b.wing
+           , b.date_elec
+           , b.id_semma
+      FROM eval_test_rf_party2  AS a
+      LEFT JOIN (
+                SELECT *
+                FROM semma_id ) AS b
+            ON   (a.id_fin = b.id_fin)
+            ')
+  
+  eval_test_rf_party3 <-
+    eval_test_rf_party3 %>% 
+    mutate(wing =
+             case_when(str_detect(party, "VOX")|                                                                            
+                         str_detect(party, "UCD")|
+                         str_detect(party, "FN")|
+                         str_detect(party, "CIU")|
+                         str_detect(party, "CDS")|
+                         str_detect(party, "CC")|
+                         str_detect(party, "AP")|
+                         str_detect(party, "cs")|
+                         str_detect(party, "PP") ~ "RIGHT",
+                       TRUE ~ "LEFT"))
+  
+  eval_test_rf_party3 <-
+    eval_test_rf_party3 %>% 
+    mutate(date_elec =
+             case_when(str_detect(year_elec, "1982") ~ "1982-10-28",                                                                        
+                       str_detect(year_elec, "1986") ~ "1986-06-22",
+                       str_detect(year_elec, "1989") ~ "1989-10-29",
+                       str_detect(year_elec, "1993") ~ "1993-06-06",
+                       str_detect(year_elec, "1996") ~ "1996-03-03",
+                       str_detect(year_elec, "2000") ~ "2000-03-12",
+                       str_detect(year_elec, "2004") ~ "2004-03-14",
+                       str_detect(year_elec, "2008") ~ "2008-03-09",
+                       str_detect(year_elec, "2011") ~ "2011-11-20",
+                       str_detect(year_elec, "2015") ~ "2015-12-20",
+                       str_detect(year_elec, "2016") ~ "2016-06-26",
+                       str_detect(date_elec, "2019-04-28 02:00:00") ~ "2019-04-28",
+                       str_detect(date_elec, "2019-11-10 01:00:00") ~ "2019-11-10",
+                       TRUE ~ "NA"))
+  
+  
   # MEDIA POR PARTY Y CARRERA: ¿Medias de las predicciones = predicción del voto real?
-  eval_test_rf_party <- group_by(eval_test_rf_party, year_elec, party) #OJO con 2019 tenemos que recuprara el date elec
+  eval_test_rf_party <- group_by(eval_test_rf_party3, date_elec, party) #OJO con 2019 tenemos que recuprara el date elec
   eval_test_rf_party <- summarise(eval_test_rf_party, prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  eval_test_rf_party <- eval_test_rf_party %>% filter(!(date_elec == "NA"),)
   # Falta añadir con un join el valor real para hacer la comparativa. 
   eval_test_rf_party
+  semma_dos <- semma %>% mutate(date_elec2 = as.character(date_elec))
+  
+  eval_test_rf_party <- sqldf('
+      SELECT a.* 
+           , b.real_vote
+           , b.prom_carrera_partido
+      FROM eval_test_rf_party  AS a
+      LEFT JOIN (
+                SELECT *
+                FROM semma_dos ) AS b
+            ON (a.date_elec = b.date_elec2)
+            AND (a.party = b.party)
+            ')
+  
+  eval_test_rf_party<-eval_test_rf_party[!duplicated(eval_test_rf_party), ]
+  saveRDS(eval_test_rf_party, "eval_test_rf_party")
+  
+  eval_test_rf_party_mae <- eval_test_rf_party %>% 
+    mutate(mae_rf = abs(prediccion_de_partido - real_vote)) %>% 
+    mutate(mae_prom = abs(prom_carrera_partido - real_vote))
+  print(skim(eval_test_rf_party_mae))
+  
+  # install.packages("CGPfunctions")
+  library(CGPfunctions)
+  # install.packages("ggplot2")
+  library(ggplot2)
+  
+  newggslopegraph(eval_test_rf_party, date_elec, prediccion_de_partido, party,
+                  Title = "Evolución del PIB",
+                  SubTitle = "1970-1979",
+                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
+                  DataLabelPadding = 0.2,
+                  DataLabelLineSize = 0.5,
+                  DataLabelFillColor = "white") +
+    theme_gray() +
+    scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
+                                  "palegreen3", "orange3",  "orange", "red",
+                                  "grey", "yellow",  "gold3", "lightblue3", 
+                                  "darkblue", "darkred",  "darkgreen", "yellow", 
+                                  "darkolivegreen3", "orchid3",  "steelblue", "red",
+                                  "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
+    theme(legend.position = "none")
+  
+  eval_test_rf_party <- eval_test_rf_party%>% filter(!(party == "EH.BILDU" ),)
+  
+  carreras <- split(eval_test_rf_party, eval_test_rf_party$date_elec)
+  eval_test_rf_party_2019_11 <-carreras[["2019-11-10"]]
+  
+  a<-ggplot(eval_test_rf_party_2019_11) +
+    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-11-10)")+
+    theme(legend.position = "bottom")
+  a
+  
+  eval_test_rf_party_2019_04 <-carreras[["2019-04-28"]]
+  
+  b<-ggplot(eval_test_rf_party_2019_04) +
+    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-04-28)")+
+    theme(legend.position = "bottom")
+  b
+  
+  
+  eval_test_rf_party_2016 <-carreras[["2016-06-26"]]
+  
+  c<-ggplot(eval_test_rf_party_2016) +
+    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2016-06-26)")+
+    theme(legend.position = "bottom")
+  c
+  
+  eval_test_rf_party_2015 <-carreras[["2015-12-20"]]
+  
+  d<-ggplot(eval_test_rf_party_2015) +
+    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2015-12-20)")+
+    theme(legend.position = "bottom")
+  d
+  
+  comparativa_test_rf <- ggarrange(a, b, c, d,
+                                    ncol = 2, nrow = 2)
+  comparativa_test_rf
   # PREDICCIONES EN TEST 2023 =========================================================
   # Predecimos en test con el modelo seleccionado
   prediccion_2023 <- predict(rf_ganador, newdata = test_2023)
@@ -2636,11 +2916,44 @@ simple_cross_validation <- function(list_of_minbucket) {
                        str_detect(poll_firm_VOX_PÚBLICA, "1") ~"VOX_PÚBLICA",
                        TRUE ~ "OTRAS"))
   
+  eval_test_rf_2023_graf <- sqldf('
+      SELECT *
+      FROM eval_test_rf_2023
+      WHERE urna_365 = 1
+      AND n > 30
+      AND n_days_field >= 4
+                        ')
+  
+  eval_test_rf_2023_party<-eval_test_rf_2023_graf[!duplicated(eval_test_rf_2023_graf), ]
   eval_test_rf_2023_party <- select(eval_test_rf_2023, party, est_real_vote)
   eval_test_rf_2023_party <- group_by(eval_test_rf_2023_party, party) 
   eval_test_rf_2023_party <- eval_test_rf_2023_party %>% 
     summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
-  
+  ggplot() +
+    geom_col(data = eval_test_rf_2023_graf %>% group_by(party) %>% 
+               summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+               mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+             aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+    geom_jitter(data = eval_test_rf_2023_graf 
+                ,
+                aes(x = party, y = est_surv_vote, fill = party),
+                width = 0.2,
+                shape = 21, color = "grey", size = 2,
+                alpha = 0.95, show.legend = FALSE) +
+    geom_jitter(data=eval_test_rf_2023_party, 
+                aes(x = party, y = prediccion_de_partido, fill = party),
+                color = "black", shape = 21, size = 2, alpha = 1, show.legend = FALSE)+
+    scale_y_continuous(breaks = seq(0, 35, by = 5),
+                       labels = scales::label_percent(scale = 1)) +
+    scale_fill_manual(values =
+                        c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    scale_color_manual(values =
+                         c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    theme_minimal() +
+    labs(x = "Partido político", y = "Porcentaje de voto estimado",
+         Title = "Estimaciones a menos de 365 días de las elecciones",
+         fill = "Partidos",
+         caption = "Autor: Enric Palau Payeras")
   
   
   eval_test_rf_2023_party <- eval_test_rf_2023_party %>% 
@@ -2685,7 +2998,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_1<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n",  "est_surv_vote", "prom_general_partido",
+                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
@@ -2734,7 +3047,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_2<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n",  "est_surv_vote", "prom_general_partido",
+                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
@@ -2782,7 +3095,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_3<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n",  "est_surv_vote", "prom_general_partido",
+                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
@@ -2830,7 +3143,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_4<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n",  "est_surv_vote", "prom_general_partido",
+                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
@@ -2953,8 +3266,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   # Predecimos en test con el modelo seleccionado
   prediccion <- predict(gbm_ganador, newdata = test_semma) #hacemos las predicciones sobre test; recordemos que en test no hay dummies. 
   prediccion <- as.data.frame(prediccion)#guardamos las predicciones en test
-  # saveRDS(prediccion, "prediccion_gbm")
-  
+  saveRDS(prediccion, "prediccion_gbm")
+  prediccion <-readRDS("prediccion_gbm")
   # Al no tener el id_semma añadimos un id por el row name que R define por defecto
   obs_test<-tibble::rowid_to_column(test_semma, "ID")
   
@@ -3072,7 +3385,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   
   eval_test_gbm_party2 <- eval_test_gbm_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                          "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -3162,20 +3475,36 @@ simple_cross_validation <- function(list_of_minbucket) {
             AND (a.party = b.party)
             ')
   eval_test_gbm_party<-eval_test_gbm_party[!duplicated(eval_test_gbm_party), ]
+  saveRDS(eval_test_gbm_party, "eval_test_gbm_party")
+  
+  eval_test_gbm_party_mae <- eval_test_gbm_party %>% 
+    mutate(mae_gbm = abs(prediccion_de_partido - real_vote)) %>% 
+    mutate(mae_prom = abs(prom_carrera_partido - real_vote))
+  print(skim(eval_test_gbm_party_mae))
+  
   # install.packages("CGPfunctions")
   library(CGPfunctions)
   # install.packages("ggplot2")
   library(ggplot2)
   
-  newggslopegraph(eval_test_gbm_party, date_elec, real_vote, party,
+  newggslopegraph(eval_test_gbm_party, date_elec, prediccion_de_partido, party,
                   Title = "Evolución del PIB",
                   SubTitle = "1970-1979",
-                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset") +
+                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
+                  DataLabelPadding = 0.2,
+                  DataLabelLineSize = 0.5,
+                  DataLabelFillColor = "white") +
     theme_gray() +
+    scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
+                                  "palegreen3", "orange3",  "orange", "red",
+                                  "grey", "yellow",  "gold3", "lightblue3", 
+                                  "darkblue", "darkred",  "darkgreen", "yellow", 
+                                  "darkolivegreen3", "orchid3",  "steelblue", "red",
+                                  "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
     theme(legend.position = "none")
   
-  # install.packages("ggplot2")
- 
+  eval_test_gbm_party <- eval_test_gbm_party%>% filter(!(party == "EH.BILDU" ),)
+  
   carreras <- split(eval_test_gbm_party, eval_test_gbm_party$date_elec)
   eval_test_gbm_party_2019_11 <-carreras[["2019-11-10"]]
   
@@ -3184,8 +3513,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-11-10)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-11-10)")+
     theme(legend.position = "bottom")
+  a
   
   eval_test_gbm_party_2019_04 <-carreras[["2019-04-28"]]
   
@@ -3194,8 +3528,14 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-04-28)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-04-28)")+
     theme(legend.position = "bottom")
+  b
+  
   
   eval_test_gbm_party_2016 <-carreras[["2016-06-26"]]
   
@@ -3204,8 +3544,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2016-06-26)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2016-06-26)")+
     theme(legend.position = "bottom")
+  c
   
   eval_test_gbm_party_2015 <-carreras[["2015-12-20"]]
   
@@ -3214,8 +3559,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2015-12-20)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2015-12-20)")+
     theme(legend.position = "bottom")
+  d
   
   comparativa_test_gbm <- ggarrange(a, b, c, d,
                                     ncol = 2, nrow = 2)
@@ -3295,6 +3645,57 @@ simple_cross_validation <- function(list_of_minbucket) {
                        str_detect(poll_firm_TNS_DEMOSCOPIA, "1") ~"TNS_DEMOSCOPIA",
                        str_detect(poll_firm_VOX_PÚBLICA, "1") ~"VOX_PÚBLICA",
                        TRUE ~ "OTRAS"))
+  
+  eval_test_gbm_2023_graf <- sqldf('
+      SELECT *
+      FROM eval_test_gbm_2023
+      WHERE urna_365 = 1
+      AND n > 30
+      AND n_days_field >= 4
+                        ')
+  
+  eval_test_gbm_2023_party<-eval_test_gbm_2023_graf[!duplicated(eval_test_gbm_2023_graf), ]
+  eval_test_gbm_2023_party <- select(eval_test_gbm_2023, party, est_real_vote)
+  eval_test_gbm_2023_party <- group_by(eval_test_gbm_2023_party, party) 
+  eval_test_gbm_2023_party <- eval_test_gbm_2023_party %>% 
+    summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  ggplot() +
+    geom_col(data = eval_test_gbm_2023_graf %>% group_by(party) %>% 
+               summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+               mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+             aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+    geom_jitter(data = eval_test_gbm_2023_graf 
+                ,
+                aes(x = party, y = est_surv_vote, fill = party),
+                width = 0.2,
+                shape = 21, color = "grey", size = 2,
+                alpha = 0.95, show.legend = FALSE) +
+    geom_jitter(data=eval_test_gbm_2023_party, 
+                aes(x = party, y = abs(prediccion_de_partido), fill = party),
+                color = "black", shape = 21, size = 2, alpha = 1, show.legend = FALSE)+
+    scale_y_continuous(breaks = seq(0, 35, by = 5),
+                       labels = scales::label_percent(scale = 1)) +
+    scale_fill_manual(values =
+                        c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    scale_color_manual(values =
+                         c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    theme_minimal() +
+    labs(x = "Partido político", y = "Porcentaje de voto estimado",
+         Title = "Estimaciones a menos de 365 días de las elecciones",
+         fill = "Partidos",
+         caption = "Autor: Enric Palau Payeras")
+  
+  
+  eval_test_gbm_2023_party <- eval_test_gbm_2023_party %>% 
+    mutate(partido_estimación =
+             glue("{party} = {prediccion_de_partido}"))
+  # Basic piechart
+  ggplot(eval_test_gbm_2023_party, aes(x="", y=prediccion_de_partido, fill=partido_estimación)) +
+    geom_bar(stat="identity", width=1, color="white") +
+    coord_polar("y", start=0) +
+    theme_void() +
+    labs(title = "% de voto en las elecciones de 2023")+ 
+    theme(plot.title = element_text(face = "bold"))
   
   eval_test_gbm_2023_party <- select(eval_test_gbm_2023, party, est_real_vote)
   eval_test_gbm_2023_party <- group_by(eval_test_gbm_2023_party, party) 
@@ -3566,7 +3967,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   for (iter in listaiter)
   {rednnet<- train( errores~year_elec+n_days_field+days_to_elec+porc_surveys_firm+ 
-                    n+est_surv_vote+prom_general_partido+
+                    n+exit_poll+est_surv_vote+prom_general_partido+
                     prom_general_wing+prom_casa_partido+ 
                     prom_casa_wing+prom_carrera_partido+ 
                     prom_carrera_wing+
@@ -3621,7 +4022,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_red_arbol_a<-cruzadaavnnet(data = train_semma,
                           vardep="errores",
                           listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                        "n",  "est_surv_vote", "prom_general_partido",
+                                        "n", "exit_poll", "est_surv_vote", "prom_general_partido",
                                         "prom_general_wing","prom_casa_partido", 
                                         "prom_casa_wing", "prom_carrera_partido", 
                                         "prom_carrera_wing",
@@ -3670,7 +4071,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_red_arbol_b<-cruzadaavnnet(data = train_semma,
                                   vardep="errores",
                                   listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                "n",  "est_surv_vote", "prom_general_partido",
+                                                "n", "exit_poll", "est_surv_vote", "prom_general_partido",
                                                 "prom_general_wing","prom_casa_partido", 
                                                 "prom_casa_wing", "prom_carrera_partido", 
                                                 "prom_carrera_wing",
@@ -3728,10 +4129,10 @@ simple_cross_validation <- function(list_of_minbucket) {
     labs(x = "Modelos de red", y = 'MAE', title = "Boxplot vc repetida redes") 
   #Las observaciones fuera del boxplot (circulos) son errores outlier, o mejor dicho, errores muy anómalos para el modelo.
   nnetgrid <- expand.grid(size=3, decay=0.1, bag=F)
-  nnetgrid <- expand.grid(size=1, decay=0.5, bag=F)
+  nnetgrid <- expand.grid(size=20, decay=0.5, bag=F)
   nnetgrid <- expand.grid(size=6, decay=0.5, bag=F)
   red_ganador <- train(errores~year_elec+n_days_field+days_to_elec+porc_surveys_firm+ 
-                         n+est_surv_vote+prom_general_partido+
+                         n+exit_poll+est_surv_vote+prom_general_partido+
                          prom_general_wing+prom_casa_partido+ 
                          prom_casa_wing+prom_carrera_partido+ 
                          prom_carrera_wing+
@@ -3788,7 +4189,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   eval_test_red <- left_join(obs_test, pred_test, by = "ID") %>%
     mutate(error = prediccion - errores ) %>% # Error del modelo
     mutate(real_vote = est_surv_vote + errores ) %>% # Error de las encuestas (error real)
-    mutate(est_real_vote = est_surv_vote + prediccion ) # Estimación de voto del modelo o corrección del modelo aplicada a la encuesta
+    mutate(est_real_vote = est_surv_vote + prediccion) # Estimación de voto del modelo o corrección del modelo aplicada a la encuesta
   # write_csv(eval_test_red, file = "./EXPORTADO/eval_test_red.csv")
   
   # gráfico de error real y error del modelo
@@ -3956,6 +4357,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   #Las observaciones fuera del boxplot (circulos) son errores outlier, o mejor dicho, errores muy anómalos para el modelo.
   
   # PREDICCIONES EN TEST =========================================================
+  set.seed(123)
   nnetgrid <- expand.grid(size=20, decay=0.5, bag=F)
   red_ganador <- train(errores~ house_effect_e+ party_PODEMOS+ party_UP+ 
                          est_surv_vote+ prom_carrera_partido+ prom_carrera_wing+ 
@@ -3978,7 +4380,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   # Predecimos en test con el modelo seleccionado
   prediccion <- predict(red_ganador, newdata = test_semma) #hacemos las predicciones sobre test; recordemos que en test no hay dummies. 
   prediccion <- as.data.frame(prediccion)#guardamos las predicciones en test
-  # saveRDS(prediccion, "prediccion_arbol")
+  # saveRDS(prediccion, "prediccion_red")
   
   # Al no tener el id_semma añadimos un id por el row name que R define por defecto
   obs_test<-tibble::rowid_to_column(test_semma, "ID")
@@ -4096,7 +4498,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   
   eval_test_red_party2 <- eval_test_red_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                          "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -4186,63 +4588,98 @@ simple_cross_validation <- function(list_of_minbucket) {
             AND (a.party = b.party)
             ')
   eval_test_red_party<-eval_test_red_party[!duplicated(eval_test_red_party), ]
+  eval_test_red_party_mae <- eval_test_red_party %>% 
+    mutate(mae_red = abs(prediccion_de_partido - real_vote)) %>% 
+    mutate(mae_prom = abs(prom_carrera_partido - real_vote))
+  print(skim(eval_test_red_party_mae))
   # install.packages("CGPfunctions")
   library(CGPfunctions)
   # install.packages("ggplot2")
   library(ggplot2)
   
-  newggslopegraph(eval_test_red_party, date_elec, real_vote, party,
+  newggslopegraph(eval_test_red_party, date_elec, prediccion_de_partido, party,
                   Title = "Evolución del PIB",
                   SubTitle = "1970-1979",
-                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset") +
-    theme_gray() +
-    theme(legend.position = "none")
-  
-  # install.packages("ggplot2")
-  carreras <- split(eval_test_red_party, eval_test_red_party$date_elec)
-  eval_test_red_party_2019_11 <-carreras[["2019-11-10"]]
-  
-  a<-ggplot(eval_test_red_party_2019_11) +
-    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
-                     y = party, yend = party)) +
-    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
-    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-11-10)")+
-    theme(legend.position = "bottom")
-  
-  eval_test_red_party_2019_04 <-carreras[["2019-04-28"]]
-  
-  b<-ggplot(eval_test_red_party_2019_04) +
-    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
-                     y = party, yend = party)) +
-    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
-    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-04-28)")+
-    theme(legend.position = "bottom")
-  
-  eval_test_red_party_2016 <-carreras[["2016-06-26"]]
-  
-  c<-ggplot(eval_test_red_party_2016) +
-    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
-                     y = party, yend = party)) +
-    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
-    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2016-06-26)")+
-    theme(legend.position = "bottom")
-  
-  eval_test_red_party_2015 <-carreras[["2015-12-20"]]
-  
-  d<-ggplot(eval_test_red_party_2015) +
-    geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
-                     y = party, yend = party)) +
-    geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
-    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2015-12-20)")+
-    theme(legend.position = "bottom")
-  
-  comparativa_test_red <- ggarrange(a, b, c, d,
+                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
+    DataLabelPadding = 0.2,
+  DataLabelLineSize = 0.5,
+  DataLabelFillColor = "white") +
+  theme_gray() +
+  scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
+                                "palegreen3", "orange3",  "orange", "red",
+                                "grey", "yellow",  "gold3", "lightblue3", 
+                                "darkblue", "darkred",  "darkgreen", "yellow", 
+                                "darkolivegreen3", "orchid3",  "steelblue", "red",
+                                "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
+  theme(legend.position = "none")
+
+eval_test_red_party <- eval_test_red_party%>% filter(!(party == "EH.BILDU" ),)
+
+carreras <- split(eval_test_red_party, eval_test_red_party$date_elec)
+eval_test_red_party_2019_11 <-carreras[["2019-11-10"]]
+
+a<-ggplot(eval_test_red_party_2019_11) +
+  geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-11-10)")+
+  theme(legend.position = "bottom")
+a
+
+eval_test_red_party_2019_04 <-carreras[["2019-04-28"]]
+
+b<-ggplot(eval_test_red_party_2019_04) +
+  geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-04-28)")+
+  theme(legend.position = "bottom")
+b
+
+
+eval_test_red_party_2016 <-carreras[["2016-06-26"]]
+
+c<-ggplot(eval_test_red_party_2016) +
+  geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2016-06-26)")+
+  theme(legend.position = "bottom")
+c
+
+eval_test_red_party_2015 <-carreras[["2015-12-20"]]
+
+d<-ggplot(eval_test_red_party_2015) +
+  geom_segment(aes(x = prediccion_de_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                   y = party, yend = party)) +
+  geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+  geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+  theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2015-12-20)")+
+  theme(legend.position = "bottom")
+d
+
+comparativa_test_red <- ggarrange(a, b, c, d,
                                     ncol = 2, nrow = 2)
-  comparativa_test_red
+comparativa_test_red
   
   library(Metrics)
  
@@ -4320,6 +4757,45 @@ simple_cross_validation <- function(list_of_minbucket) {
                        str_detect(poll_firm_TNS_DEMOSCOPIA, "1") ~"TNS_DEMOSCOPIA",
                        str_detect(poll_firm_VOX_PÚBLICA, "1") ~"VOX_PÚBLICA",
                        TRUE ~ "OTRAS"))
+  
+  eval_test_red_2023_graf <- sqldf('
+      SELECT *
+      FROM eval_test_red_2023
+      WHERE urna_365 = 1
+      AND n > 30
+      AND n_days_field >= 4
+                        ')
+  
+  eval_test_red_2023_party<-eval_test_red_2023_graf[!duplicated(eval_test_red_2023_graf), ]
+  eval_test_red_2023_party <- select(eval_test_red_2023, party, est_real_vote)
+  eval_test_red_2023_party <- group_by(eval_test_red_2023_party, party) 
+  eval_test_red_2023_party <- eval_test_red_2023_party %>% 
+    summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  ggplot() +
+    geom_col(data = eval_test_red_2023_graf %>% group_by(party) %>% 
+               summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+               mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+             aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+    geom_jitter(data = eval_test_red_2023_graf 
+                ,
+                aes(x = party, y = est_surv_vote, fill = party),
+                width = 0.2,
+                shape = 21, color = "grey", size = 2,
+                alpha = 0.95, show.legend = FALSE) +
+    geom_jitter(data=eval_test_red_2023_party, 
+                aes(x = party, y = abs(prediccion_de_partido), fill = party),
+                color = "black", shape = 21, size = 2, alpha = 1, show.legend = FALSE)+
+    scale_y_continuous(breaks = seq(0, 35, by = 5),
+                       labels = scales::label_percent(scale = 1)) +
+    scale_fill_manual(values =
+                        c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    scale_color_manual(values =
+                         c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    theme_minimal() +
+    labs(x = "Partido político", y = "Porcentaje de voto estimado",
+         Title = "Estimaciones a menos de 365 días de las elecciones",
+         fill = "Partidos",
+         caption = "Autor: Enric Palau Payeras")
   
   eval_test_red_2023_party <- select(eval_test_red_2023, party, est_real_vote)
   eval_test_red_2023_party <- group_by(eval_test_red_2023_party, party) 
@@ -4838,7 +5314,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   # CONCLUSIÓN MEJOR ARBOL : Predicciones en test
   # PREDICCIONES EN TEST =========================================================
     # HIPERPARÁMETROS:
-  SVMgrid<-expand.grid(C=c(5),
+  SVMgrid<-expand.grid(C=c(10),
                          degree=c(3),
                          scale=c(1))
   # DEFINICIÓN DEL ENTRENAMIENTO
@@ -4985,7 +5461,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   
   eval_test_SVM_party2 <- eval_test_SVM_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                             "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                             "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                              "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                              "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                              "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
@@ -5057,7 +5533,6 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   # MEDIA POR PARTY Y CARRERA: ¿Medias de las predicciones = predicción del voto real?
   eval_test_SVM_party <- group_by(eval_test_SVM_party3, date_elec, party)  
-  write.csv()
   eval_test_SVM_party <- summarise(eval_test_SVM_party, prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
   eval_test_SVM_party <- eval_test_SVM_party %>% filter(!(date_elec == "NA"),)
   # Falta añadir con un join el valor real para hacer la comparativa. 
@@ -5078,18 +5553,32 @@ simple_cross_validation <- function(list_of_minbucket) {
   eval_test_SVM_party<-eval_test_SVM_party[!duplicated(eval_test_SVM_party), ]
   saveRDS(eval_test_SVM_party, "eval_test_SVM_party")
   # install.packages("CGPfunctions")
+  eval_test_SVM_party_mae <- eval_test_SVM_party %>% 
+    mutate(mae_SVM = abs(prediccion_de_partido - real_vote)) %>% 
+    mutate(mae_prom = abs(prom_carrera_partido - real_vote))
+  print(skim(eval_test_SVM_party_mae))
   library(CGPfunctions)
   # install.packages("ggplot2")
   library(ggplot2)
   
   newggslopegraph(eval_test_SVM_party, date_elec, prediccion_de_partido, party,
-                  Title = "Evolución del voto en España",
-                  SubTitle = "1982-2023",
-                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset") +
+                  Title = "Evolución del PIB",
+                  SubTitle = "1970-1979",
+                  Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
+                  DataLabelPadding = 0.2,
+                  DataLabelLineSize = 0.5,
+                  DataLabelFillColor = "white") +
     theme_gray() +
+    scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
+                                  "palegreen3", "orange3",  "orange", "red",
+                                  "grey", "yellow",  "gold3", "lightblue3", 
+                                  "darkblue", "darkred",  "darkgreen", "yellow", 
+                                  "darkolivegreen3", "orchid3",  "steelblue", "red",
+                                  "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
     theme(legend.position = "none")
   
-  # install.packages("ggplot2")
+  eval_test_SVM_party <- eval_test_SVM_party%>% filter(!(party == "EH.BILDU" ),)
+  
   carreras <- split(eval_test_SVM_party, eval_test_SVM_party$date_elec)
   eval_test_SVM_party_2019_11 <-carreras[["2019-11-10"]]
   
@@ -5098,8 +5587,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-11-10)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-11-10)")+
     theme(legend.position = "bottom")
+  a
   
   eval_test_SVM_party_2019_04 <-carreras[["2019-04-28"]]
   
@@ -5108,8 +5602,14 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2019-04-28)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2019-04-28)")+
     theme(legend.position = "bottom")
+  b
+  
   
   eval_test_SVM_party_2016 <-carreras[["2016-06-26"]]
   
@@ -5118,8 +5618,13 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2016-06-26)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2016-06-26)")+
     theme(legend.position = "bottom")
+  c
   
   eval_test_SVM_party_2015 <-carreras[["2015-12-20"]]
   
@@ -5128,14 +5633,17 @@ simple_cross_validation <- function(list_of_minbucket) {
                      y = party, yend = party)) +
     geom_point(aes(x = prediccion_de_partido, y = party), size = 4, color = "indianred3", alpha = 0.7) +
     geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
-    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul); (2015-12-20)")+
+    geom_segment(aes(x = prom_carrera_partido, xend = real_vote,
+                     y = party, yend = party)) +
+    geom_point(aes(x = prom_carrera_partido, y = party), size = 4, color = "mediumaquamarine", alpha = 0.7) +
+    geom_point(aes(x = real_vote, y = party), size = 4, color = "cornflowerblue", alpha = 0.7)+
+    theme_grey()+labs(x = "Predicciones (rojo) vs  Observaciones (azul) vs mercado (verde); (2015-12-20)")+
     theme(legend.position = "bottom")
+  d
   
   comparativa_test_SVM <- ggarrange(a, b, c, d,
-                                      ncol = 2, nrow = 2)
+                                    ncol = 2, nrow = 2)
   comparativa_test_SVM
-  
-  
   # PREDICCIONES EN TEST 2023 =========================================================
   # Predecimos en test con el modelo seleccionado
   prediccion_2023 <- predict(SVM_ganador, newdata = test_2023)
@@ -5210,6 +5718,46 @@ simple_cross_validation <- function(list_of_minbucket) {
                        str_detect(poll_firm_TNS_DEMOSCOPIA, "1") ~"TNS_DEMOSCOPIA",
                        str_detect(poll_firm_VOX_PÚBLICA, "1") ~"VOX_PÚBLICA",
                        TRUE ~ "OTRAS"))
+  eval_test_SVM_2023_graf <- sqldf('
+      SELECT *
+      FROM eval_test_SVM_2023
+      WHERE urna_365 = 1
+      AND n > 30
+      AND n_days_field >= 4
+                        ')
+  
+  eval_test_SVM_2023_party<-eval_test_SVM_2023_graf[!duplicated(eval_test_SVM_2023_graf), ]
+  eval_test_SVM_2023_party <- select(eval_test_SVM_2023, party, est_real_vote)
+  eval_test_SVM_2023_party <- group_by(eval_test_SVM_2023_party, party) 
+  
+  eval_test_SVM_2023_party <- eval_test_SVM_2023_party %>% 
+    summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  ggplot() +
+    geom_col(data = eval_test_SVM_2023_graf %>% group_by(party) %>% 
+               summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+               mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+             aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+    geom_jitter(data = eval_test_SVM_2023_graf 
+                ,
+                aes(x = party, y = est_surv_vote, fill = party),
+                width = 0.2,
+                shape = 21, color = "grey", size = 2,
+                alpha = 0.95, show.legend = FALSE) +
+    geom_jitter(data=eval_test_SVM_2023_party, 
+                aes(x = party, y = abs(prediccion_de_partido), fill = party),
+                color = "black", shape = 21, size = 2, alpha = 1, show.legend = FALSE)+
+    scale_y_continuous(breaks = seq(0, 35, by = 5),
+                       labels = scales::label_percent(scale = 1)) +
+    scale_fill_manual(values =
+                        c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    scale_color_manual(values =
+                         c("#0b4a94", "#f70000", "#4DCB1E", "#875786", "#EEAD0E",  "#458B74", "#fc4600", "#8DEEEE", "#006400","#B3EE3A","#FFD700","#8EE5EE","#FFFF00","#BA0C2F","#C2CE0C","#9ACD32")) + #color del partido 
+    theme_minimal() +
+    labs(x = "Partido político", y = "Porcentaje de voto estimado",
+         Title = "Estimaciones a menos de 365 días de las elecciones",
+         fill = "Partidos",
+         caption = "Autor: Enric Palau Payeras")
+  
   
   eval_test_SVM_2023_party <- select(eval_test_SVM_2023, party, est_real_vote)
   eval_test_SVM_2023_party <- group_by(eval_test_SVM_2023_party, party) 
@@ -5230,3 +5778,4 @@ simple_cross_validation <- function(list_of_minbucket) {
     labs(title = "% de voto en las elecciones de 2023")+ 
     theme(plot.title = element_text(face = "bold"))+
     theme_grey()
+  

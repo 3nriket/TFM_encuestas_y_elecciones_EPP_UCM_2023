@@ -1,3 +1,4 @@
+# Eliminamos las varibles que puedan causar sobreajuste
 test_2023<-test_2023 %>% filter(!(exit_poll == "TRUE"),)
 test_2023$exit_poll<-NULL
 test_2023$error_general_partido<-NULL
