@@ -148,27 +148,27 @@ votes_national_by_mun <-
                      # PACMA
                      str_detect(party, "PARTIDO ANTITAURINO CONTRA") |
                        str_detect(party_abbrev, "P.A.C.M.A") ~ "PACMA",
-                     # # JXC
-                     # str_detect(party, "JUNTS PER CATALUNYA") |
-                     #   str_detect(party, "JUNTS") |
-                     #   str_detect(str_to_upper(party_abbrev), "JxCAT") ~ "JXC",
                      # VOX
                      str_detect(party, "VOX") ~ "VOX",
-                     # # PRC
-                     # str_detect(party, "CANTABRIA") &
-                     #   (str_detect(str_remove_all(party_abbrev, " "), "P.R.C") |
-                     #      str_detect(party_abbrev, "PRC")) ~ "PRC",
                      # BILDU
                      str_detect(party, "BILDU") ~ "EH-BILDU",
-                     # # MP
-                     # str_detect(party, "MÁS PAÍS") ~ "MP",
                      # CUP
                      str_detect(party_abbrev, "CUP") ~ "CUP",
-                     # # TE
-                     # str_detect(party, "TERUEL EX") ~ "TE",
-                     # # NC
-                     # str_detect(party_abbrev, "NC") |
-                     #   str_detect(party_abbrev, "NCa") ~ "NC",
+                     # JXC
+                     str_detect(party, "JUNTS PER CATALUNYA") |
+                       str_detect(party, "JUNTS") |
+                       str_detect(str_to_upper(party_abbrev), "JxCAT") ~ "JXC",
+                     # PRC
+                     str_detect(party, "CANTABRIA") &
+                       (str_detect(str_remove_all(party_abbrev, " "), "P.R.C") |
+                          str_detect(party_abbrev, "PRC")) ~ "PRC",
+                     # MP
+                     str_detect(party, "MÁS PAÍS") ~ "MP",
+                     # TE
+                     str_detect(party, "TERUEL EX") ~ "TE",
+                     # NC
+                     str_detect(party_abbrev, "NC") |
+                       str_detect(party_abbrev, "NCa") ~ "NC",
                      TRUE ~ "OTROS"))
 
 # Suma de votos totales a nivel nacional por eleccion-partido

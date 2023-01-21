@@ -448,7 +448,7 @@ simple_cross_validation <- function(list_of_minbucket) {
                                              "party_HB", "poll_firm_SIMPLE_LÓGICA", "eco_fisc_ing_percap", 
                                              "pobl_pobreza_rate", "poll_firm_DYM", "poll_firm_SOCIOMÉTRICA", 
                                              "party_EA", "party_PA", "lead_party_PSOE", "lead2_party_UP", 
-                                             "eco_fisc_ing", "urna_7", "lead_party_PODEMOS"),
+                                             "eco_fisc_ing",  "lead_party_PODEMOS"),
                                  listclass=c(""),
                                  grupos=4, # validamos sobre 1/4 de nuestras observaciones
                                  sinicio=1234,
@@ -763,7 +763,7 @@ simple_cross_validation <- function(list_of_minbucket) {
       medias_arbol_3 <- readRDS("arbol_3") #minbucket = 36 cp 0,00012
       medias_arbol_4 <- readRDS("arbol_4") #minbucket = 1020
       medias_arbol_5 <- readRDS("arbol_5") #minbucket = 150
-      
+ # Figura 21: Validación cruzada repetida (4 grupos y 10 iteraciones) en árboles     
  union<-rbind(medias_arbol_1, medias_arbol_2, medias_arbol_3, medias_arbol_4, medias_arbol_5 )
   par(cex.axis=1)
   ggplot(union, aes(x=modelo, y=error, fill=modelo)) +
@@ -821,7 +821,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     mutate(mae_arbol = mean(abs(prediccion - errores)) ) %>%
     mutate(rmse_arbol =  sqrt(mean((prediccion - errores)^2)) ) %>% 
     mutate(r_cua_arbol = 1 - sum(error^2)/sum((errores - mean(errores))^2)) 
-  
+  # Figura 22: Errores estimados en test (arbol_3)
   # gráfico de error real y error del modelo
     ggplot(data = eval_test_arbol,
            mapping = aes(x = prediccion, y = errores)) +
@@ -924,10 +924,10 @@ simple_cross_validation <- function(list_of_minbucket) {
   
     eval_test_arbol_party2 <- eval_test_arbol_party %>% select(
                                  "year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                 "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                 "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                  "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                  "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                 "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                 "house_effect_e", "wing_effect_e",   "urna_15", 
                                  "urna_60", "urna_365", 
                                  "errores", "party", "poll_firm", 
                                  "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote"
@@ -1024,7 +1024,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     # install.packages("CGPfunctions")
     library(CGPfunctions)
     newggslopegraph(eval_test_arbol_party, date_elec, prediccion_de_partido, party,
-                    Title = "Evolución del PIB",
+                    Title = "Evolución de las estimaciones de voto",
                     SubTitle = "1982-2019",
                     Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
       DataLabelPadding = 0.2,
@@ -1040,8 +1040,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   ))+
   theme(legend.position = "none")
     
-    eval_test_arbol_party <- eval_test_arbol_party%>% filter(!(party == "EH.BILDU" ),)
-
+    
+    # Figura 23: Predicción en test del % de voto por partido (arbol_3), últimas 4 carreras
     carreras <- split(eval_test_arbol_party, eval_test_arbol_party$date_elec)
     eval_test_arbol_party_2019_11 <-carreras[["2019-11-10"]]
     
@@ -1202,6 +1202,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     eval_test_arbol_2023_party <- group_by(eval_test_arbol_2023_party, party) 
     eval_test_arbol_2023_party <- eval_test_arbol_2023_party %>% 
       summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+    # Figura 24: Estimaciones para las elecciones de 2023 (arbol_3)
     ggplot() +
       geom_col(data = eval_test_arbol_2023_graf %>% group_by(party) %>% 
                  summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
@@ -1346,10 +1347,10 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_bag_arbol_1<-cruzadarf(data = train_semma, 
                                   vardep="errores",
                                   listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                              "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                              "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                               "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                               "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                              "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                              "house_effect_e", "wing_effect_e",   "urna_15", 
                                               "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                               "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                               "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1391,10 +1392,10 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_bag_arbol_1_OBB<-cruzadarf(data = train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                  "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                  "house_effect_e", "wing_effect_e",   "urna_15", 
                                                   "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                   "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                   "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1462,10 +1463,10 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_rf_bag_arbol_1<-cruzadarf(data = train_semma,
                                      vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                              "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                              "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                               "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                               "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                              "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                              "house_effect_e", "wing_effect_e",   "urna_15", 
                                               "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                               "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                               "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1509,10 +1510,10 @@ simple_cross_validation <- function(list_of_minbucket) {
     medias_rf_bag_arbol_1_btp<-cruzadarf(data = train_semma,
                                          vardep="errores",
                                          listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                     "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                     "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                      "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                      "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                     "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                     "house_effect_e", "wing_effect_e",   "urna_15", 
                                                      "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                      "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                      "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1552,14 +1553,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     saveRDS(medias_rf_bag_arbol_1_btp, "rf_bag_arbol_1_btp")
     medias_rf_bag_arbol_1_btp <- readRDS("rf_bag_arbol_1_btp")
   
-    
-
-  
-    
-    
-    
-    
-    # bag_arbol_2//rf_bag_arbol_2:  ======================================================================
+      # bag_arbol_2//rf_bag_arbol_2:  ======================================================================
     # (3/4*nfilas)
     rf_statistics <- data.frame(samplesize = integer(),
                                 nodesize   = integer(),
@@ -1665,10 +1659,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_2<-cruzadarf(data= train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                  "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                  "house_effect_e", "wing_effect_e",   "urna_15", 
                                                   "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                   "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                   "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1710,10 +1704,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_2_OOB<-cruzadarf(data = train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                  "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                  "house_effect_e", "wing_effect_e",   "urna_15", 
                                                   "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                   "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                   "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1756,13 +1750,13 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_2<-cruzadarf(data = train_semma,
                                          vardep="errores",
                                          listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                     "n", "exit_poll", "est_surv_vote", "prom_general_partido", "error_general_partido", 
+                                                     "n",  "est_surv_vote", "prom_general_partido", "error_general_partido", 
                                                      "prom_general_wing", "error_general_wing", "prom_casa_partido", 
                                                      "error_casa_partido", "prom_casa_wing", "error_casa_wing", "prom_carrera_partido", 
                                                      "error_carrera_partido", "prom_carrera_wing", "error_carrera_wing", 
                                                      "prom_carrera_casa_partido", "error_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                      "error_carrera_casa_wing", "house_effect_e", "house_effect", 
-                                                     "wing_effect_e", "wing_effect", "urna_0", "urna_7", "urna_15", 
+                                                     "wing_effect_e", "wing_effect",   "urna_15", 
                                                      "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                      "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                      "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1806,13 +1800,13 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_2_btp<-cruzadarf(data = train_semma,
                                              vardep="errores",
                                              listconti = c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                           "n", "exit_poll", "est_surv_vote", "prom_general_partido", "error_general_partido", 
+                                                           "n",  "est_surv_vote", "prom_general_partido", "error_general_partido", 
                                                            "prom_general_wing", "error_general_wing", "prom_casa_partido", 
                                                            "error_casa_partido", "prom_casa_wing", "error_casa_wing", "prom_carrera_partido", 
                                                            "error_carrera_partido", "prom_carrera_wing", "error_carrera_wing", 
                                                            "prom_carrera_casa_partido", "error_carrera_casa_partido", "prom_carrera_casa_wing", 
                                                            "error_carrera_casa_wing", "house_effect_e", "house_effect", 
-                                                           "wing_effect_e", "wing_effect", "urna_0", "urna_7", "urna_15", 
+                                                           "wing_effect_e", "wing_effect",   "urna_15", 
                                                            "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                            "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                            "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1899,10 +1893,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_3<-cruzadarf(data= train_semma, 
                                       vardep="errores",
                                       listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                  "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                  "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                   "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                   "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                  "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                  "house_effect_e", "wing_effect_e",   "urna_15", 
                                                   "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                   "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                   "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -1945,10 +1939,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_3_OOB<-cruzadarf(data = train_semma, 
                                           vardep="errores",
                                           listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                      "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                      "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                       "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                       "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                      "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                      "house_effect_e", "wing_effect_e",   "urna_15", 
                                                       "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                       "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                       "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -2020,10 +2014,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_bag_arbol_3_vars<-cruzadarf(data = train_semma, 
                                            vardep="errores",
                                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                       "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                        "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                        "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                       "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                       "house_effect_e", "wing_effect_e",   "urna_15", 
                                                        "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                        "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                        "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -2066,10 +2060,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_3<-cruzadarf(data = train_semma,
                                          vardep="errores",
                                          listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                                 "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                                 "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                                  "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                                  "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                                 "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                                 "house_effect_e", "wing_effect_e",   "urna_15", 
                                                                  "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                                  "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                                  "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -2114,10 +2108,10 @@ simple_cross_validation <- function(list_of_minbucket) {
         medias_rf_bag_arbol_3_btp<-cruzadarf(data = train_semma,
                                              vardep="errores",
                                              listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                         "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                         "house_effect_e", "wing_effect_e",   "urna_15", 
                                                          "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                          "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                          "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -2157,11 +2151,6 @@ simple_cross_validation <- function(list_of_minbucket) {
         saveRDS(medias_rf_bag_arbol_3_btp, "rf_bag_arbol_3_btp")
         medias_rf_bag_arbol_3_btp <- readRDS("rf_bag_arbol_3_btp")
         
-
-        
-   
-        
-        
   # EVALUAMOS EL MEJOR bagging =====================================================
     # Evaluamos mejor BAGGING
         medias_bag_arbol_1 <- readRDS("bag_arbol_1")
@@ -2195,7 +2184,8 @@ simple_cross_validation <- function(list_of_minbucket) {
     
     par(cex.axis=1)
     boxplot(data=union, error~modelo) 
-      
+    
+    # Figura 26: Validación cruzada repetida (4 grupos y 10 iteraciones) en Bagging. 
     ggplot(union, aes(x=modelo, y=error, fill=modelo)) +
       geom_boxplot(outlier.colour="black", outlier.shape=1,
                    outlier.size=2) +
@@ -2262,6 +2252,7 @@ simple_cross_validation <- function(list_of_minbucket) {
       mutate(rmse_bag =  sqrt(mean((prediccion - errores)^2)) ) %>% 
       mutate(r_cua_bag = 1 - sum(error^2)/sum((errores - mean(errores))^2)) 
     
+    # Figura 27: Errores estimados en test (rf_bag_arbol_3)
     # gráfico de error real y error del modelo
     ggplot(data = eval_test_bag,
            mapping = aes(x = prediccion, y = errores)) +
@@ -2363,10 +2354,10 @@ simple_cross_validation <- function(list_of_minbucket) {
     
     
     eval_test_bag_party2 <- eval_test_bag_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                               "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                               "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                                "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                                "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                               "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                               "house_effect_e", "wing_effect_e",   "urna_15", 
                                                                "urna_60", "urna_365", 
                                                                "errores", "party", "poll_firm", 
                                                                "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote") 
@@ -2454,7 +2445,7 @@ simple_cross_validation <- function(list_of_minbucket) {
             ')
     eval_test_bag_party<-eval_test_bag_party[!duplicated(eval_test_bag_party), ]
    
-    
+    # Figura 28: Predicción en test del % de voto por partido (rf_bag_arbol_3), últimas 4 carreras.
     # install.packages("ggplot2")
     library(ggplot2)
     carreras <- split(eval_test_bag_party, eval_test_bag_party$date_elec)
@@ -2655,10 +2646,10 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   
   eval_test_rf_party2 <- eval_test_rf_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                         "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                         "house_effect_e", "wing_effect_e",   "urna_15", 
                                                          "urna_60", "urna_365", 
                                                          "errores", "party", "poll_firm", 
                                                          "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote") 
@@ -2759,8 +2750,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   library(ggplot2)
   
   newggslopegraph(eval_test_rf_party, date_elec, prediccion_de_partido, party,
-                  Title = "Evolución del PIB",
-                  SubTitle = "1970-1979",
+                  Title = "Evolución de las estimaciones de voto",
+                  SubTitle = "1982-2019",
                   Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
                   DataLabelPadding = 0.2,
                   DataLabelLineSize = 0.5,
@@ -2774,7 +2765,7 @@ simple_cross_validation <- function(list_of_minbucket) {
                                   "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
     theme(legend.position = "none")
   
-  eval_test_rf_party <- eval_test_rf_party%>% filter(!(party == "EH.BILDU" ),)
+  
   
   carreras <- split(eval_test_rf_party, eval_test_rf_party$date_elec)
   eval_test_rf_party_2019_11 <-carreras[["2019-11-10"]]
@@ -2929,6 +2920,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   eval_test_rf_2023_party <- group_by(eval_test_rf_2023_party, party) 
   eval_test_rf_2023_party <- eval_test_rf_2023_party %>% 
     summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  # Figura 29: Estimaciones para las elecciones de 2023 (rf_bag_arbol_3)
   ggplot() +
     geom_col(data = eval_test_rf_2023_graf %>% group_by(party) %>% 
                summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
@@ -2998,13 +2990,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_1<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
+                                       "n",  "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
                                        "prom_carrera_casa_partido","prom_carrera_casa_wing", 
                                        "house_effect_e", 
-                                       "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                       "wing_effect_e",   "urna_15", 
                                        "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                        "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                        "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -3047,13 +3039,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_2<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
+                                       "n",  "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
                                        "prom_carrera_casa_partido","prom_carrera_casa_wing", 
                                        "house_effect_e", 
-                                       "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                       "wing_effect_e",   "urna_15", 
                                        "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                        "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                        "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -3095,13 +3087,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_3<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
+                                       "n",  "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
                                        "prom_carrera_casa_partido","prom_carrera_casa_wing", 
                                        "house_effect_e", 
-                                       "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                       "wing_effect_e",   "urna_15", 
                                        "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                        "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                        "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -3143,13 +3135,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_gbm_4<-cruzadagbm(data= train_semma,
                            vardep="errores",
                            listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                       "n", "exit_poll", "est_surv_vote", "prom_general_partido",
+                                       "n",  "est_surv_vote", "prom_general_partido",
                                        "prom_general_wing","prom_casa_partido", 
                                        "prom_casa_wing", "prom_carrera_partido", 
                                        "prom_carrera_wing",
                                        "prom_carrera_casa_partido","prom_carrera_casa_wing", 
                                        "house_effect_e", 
-                                       "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                       "wing_effect_e",   "urna_15", 
                                        "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                        "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                        "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -3216,7 +3208,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   par(cex.axis=1)
   boxplot(data=union, error~modelo) 
- 
+  # Figura 31: Validación cruzada repetida (4 grupos y 10 iteraciones) en boosting
   par(cex.axis=)
   ggplot(union, aes(x=modelo, y=error, fill=modelo)) +
     geom_boxplot(outlier.colour="black", outlier.shape=1,
@@ -3283,6 +3275,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     mutate(rmse_gbm =  sqrt(mean((prediccion - errores)^2)) ) %>% 
     mutate(r_cua_gbm = 1 - sum(error^2)/sum((errores - mean(errores))^2)) 
   
+  # Figura 32: Errores estimados en test (gbm_1).
   # gráfico de error real y error del modelo
   ggplot(data = eval_test_gbm,
          mapping = aes(x = prediccion, y = errores)) +
@@ -3385,10 +3378,10 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   
   eval_test_gbm_party2 <- eval_test_gbm_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                         "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                         "house_effect_e", "wing_effect_e",   "urna_15", 
                                                          "urna_60", "urna_365", 
                                                          "errores", "party", "poll_firm", 
                                                          "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote") 
@@ -3488,8 +3481,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   library(ggplot2)
   
   newggslopegraph(eval_test_gbm_party, date_elec, prediccion_de_partido, party,
-                  Title = "Evolución del PIB",
-                  SubTitle = "1970-1979",
+                  Title = "Evolución de las estimaciones de voto",
+                  SubTitle = "1982-2019",
                   Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
                   DataLabelPadding = 0.2,
                   DataLabelLineSize = 0.5,
@@ -3503,8 +3496,8 @@ simple_cross_validation <- function(list_of_minbucket) {
                                   "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
     theme(legend.position = "none")
   
-  eval_test_gbm_party <- eval_test_gbm_party%>% filter(!(party == "EH.BILDU" ),)
   
+  # Figura 33: Predicción en test del % de voto por partido (gbm_1), últimas 4 carreras
   carreras <- split(eval_test_gbm_party, eval_test_gbm_party$date_elec)
   eval_test_gbm_party_2019_11 <-carreras[["2019-11-10"]]
   
@@ -3659,6 +3652,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   eval_test_gbm_2023_party <- group_by(eval_test_gbm_2023_party, party) 
   eval_test_gbm_2023_party <- eval_test_gbm_2023_party %>% 
     summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  
+  # Figura 34: Estimaciones para las elecciones de 2023 (gbm_1)
   ggplot() +
     geom_col(data = eval_test_gbm_2023_graf %>% group_by(party) %>% 
                summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
@@ -3751,42 +3746,7 @@ simple_cross_validation <- function(list_of_minbucket) {
   saveRDS(medias_reg_AIC_1, "AIC_1")
   medias_reg_AIC_1 <- readRDS("AIC_1")
   
-  
-    #### 1.2.2. AIC Repetido: ####
-  
-  source("funcion steprepetido.R")
-  
-  lista<-steprepetido(data = train_semma,
-                      vardep=c("errores"),
-                      listconti=c("error_carrera_casa_partido", "est_surv_vote", 
-                                  "prom_carrera_casa_partido", "error_carrera_wing", "gov_pre_PSOE", 
-                                  "party_EH.BILDU", "poll_firm_SOCIOMÉTRICA", "n", "poll_firm_GESOP", 
-                                  "poll_firm_VOX_PÚBLICA", "lead2_party_PSOE", "urna_7"),
-                      sinicio=1234,
-                      sfinal=1238,
-                      porcen=0.8,
-                      criterio="AIC")
-  
-  tabla<-lista[[1]]
-  dput(lista[[2]][[1]])
-  
-  # medias2<-cruzadalin(data = train_semma,
-  #                      vardep="error",
-  #                      listconti= c("party_UP", "party_PODEMOS", "est_surv_vote", 
-  #                                   "prom_carrera_partido", "party_VOX", "party_EA", "party_IU", 
-  #                                   "party_UPYD", "lead2_party_ARM", "party_UCD", 
-  #                                   "party_CS", "gov_exp_san_percap", "party_BNG", 
-  #                                   "party_CCC", "party_FN", "party_CIU", "poll_firm_OBRADOIRO_SOCIO", 
-  #                                   "lead2_party_EA", "lead2_party_PSOE", "poll_firm_METROSCOPIA", 
-  #                                   "poll_firm_MYWORD", "poll_firm_SIMPLE_LÓGICA", "poll_firm_NC_REPORT", 
-  #                                   "porc_surveys_firm", "party_PNV", "party_CDS"),
-  #                      listclass=c(""),
-  #                      grupos=4,
-  #                      sinicio=1234,
-  #                      repe=10)
-  #  medias2$modelo="repAIC"
-  #  saveRDS(medias2, "repAIC")
-  medias_step_rep_AIC <- readRDS("repAIC")
+
   
   #### 1.2.3. BIC: ####
   set.seed(1234)
@@ -3838,26 +3798,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     geom_boxplot(outlier.colour="black", outlier.shape=1,
                  outlier.size=2) +
     labs(x = "Modelos de regresión", y = 'MAE', title = "Boxplot vc repetida WRAPPERS")
-  
-    #### 1.2.4. BIC Repetido: ####
-  source("funcion steprepetido.R")
-  
-  lista<-steprepetido(data = train_semma,
-                      vardep=c("errores"),
-                      listconti=c("error_carrera_casa_partido", "est_surv_vote", 
-                                  "prom_carrera_casa_partido", "error_carrera_wing", "gov_pre_PSOE", 
-                                  "party_EH.BILDU", "poll_firm_SOCIOMÉTRICA", "n", "poll_firm_GESOP", 
-                                  "poll_firm_VOX_PÚBLICA", "lead2_party_PSOE"),
-                      sinicio=12345,
-                      sfinal=12385,
-                      porcen=0.8,
-                      criterio="BIC")
-  
-  #repBIC
-  tabla<-lista[[1]]
-  dput(lista[[2]][[1]])
-  
-  
+
   #### 1.2.5. Boruta: ####
   out.boruta <- Boruta(errores~., data = train_semma)
   
@@ -3882,7 +3823,7 @@ simple_cross_validation <- function(list_of_minbucket) {
                                    "n", "est_surv_vote", "prom_general_partido", "prom_general_wing",
                                    "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido",
                                    "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing",
-                                   "house_effect_e", "wing_effect_e", "urna_7", "urna_15", "urna_60",
+                                   "house_effect_e", "wing_effect_e",  "urna_15", "urna_60",
                                    "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", "pobl_kill",
                                    "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil",
                                    "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate",
@@ -3967,13 +3908,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   for (iter in listaiter)
   {rednnet<- train( errores~year_elec+n_days_field+days_to_elec+porc_surveys_firm+ 
-                    n+exit_poll+est_surv_vote+prom_general_partido+
+                    n+est_surv_vote+prom_general_partido+
                     prom_general_wing+prom_casa_partido+ 
                     prom_casa_wing+prom_carrera_partido+ 
                     prom_carrera_wing+
                     prom_carrera_casa_partido+prom_carrera_casa_wing+ 
                     house_effect_e+ 
-                    wing_effect_e+urna_0+urna_7+urna_15+ 
+                    wing_effect_e+urna_15+ 
                     urna_60+urna_365+pobl_densidad+pobl_fem_porc+pobl+ 
                     pobl_kill+pobl_kill_percienmil+pobl_suicide+pobl_suicide_percienmil+ 
                     pobl_life_expectancy+pobl_idh+pobl_im_rate+pobl_em_rate+ 
@@ -4022,13 +3963,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_red_arbol_a<-cruzadaavnnet(data = train_semma,
                           vardep="errores",
                           listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                        "n", "exit_poll", "est_surv_vote", "prom_general_partido",
+                                        "n",  "est_surv_vote", "prom_general_partido",
                                         "prom_general_wing","prom_casa_partido", 
                                         "prom_casa_wing", "prom_carrera_partido", 
                                         "prom_carrera_wing",
                                         "prom_carrera_casa_partido","prom_carrera_casa_wing", 
                                         "house_effect_e", 
-                                        "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                        "wing_effect_e",   "urna_15", 
                                         "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                         "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                         "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -4071,13 +4012,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   medias_red_arbol_b<-cruzadaavnnet(data = train_semma,
                                   vardep="errores",
                                   listconti=c("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                "n", "exit_poll", "est_surv_vote", "prom_general_partido",
+                                                "n",  "est_surv_vote", "prom_general_partido",
                                                 "prom_general_wing","prom_casa_partido", 
                                                 "prom_casa_wing", "prom_carrera_partido", 
                                                 "prom_carrera_wing",
                                                 "prom_carrera_casa_partido","prom_carrera_casa_wing", 
                                                 "house_effect_e", 
-                                                "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                "wing_effect_e",   "urna_15", 
                                                 "urna_60", "urna_365", "pobl_densidad", "pobl_fem_porc", "pobl", 
                                                 "pobl_kill", "pobl_kill_percienmil", "pobl_suicide", "pobl_suicide_percienmil", 
                                                 "pobl_life_expectancy", "pobl_idh", "pobl_im_rate", "pobl_em_rate", 
@@ -4132,13 +4073,13 @@ simple_cross_validation <- function(list_of_minbucket) {
   nnetgrid <- expand.grid(size=20, decay=0.5, bag=F)
   nnetgrid <- expand.grid(size=6, decay=0.5, bag=F)
   red_ganador <- train(errores~year_elec+n_days_field+days_to_elec+porc_surveys_firm+ 
-                         n+exit_poll+est_surv_vote+prom_general_partido+
+                         n+est_surv_vote+prom_general_partido+
                          prom_general_wing+prom_casa_partido+ 
                          prom_casa_wing+prom_carrera_partido+ 
                          prom_carrera_wing+
                          prom_carrera_casa_partido+prom_carrera_casa_wing+ 
                          house_effect_e+ 
-                         wing_effect_e+urna_0+urna_7+urna_15+ 
+                         wing_effect_e+urna_15+ 
                          urna_60+urna_365+pobl_densidad+pobl_fem_porc+pobl+ 
                          pobl_kill+pobl_kill_percienmil+pobl_suicide+pobl_suicide_percienmil+ 
                          pobl_life_expectancy+pobl_idh+pobl_im_rate+pobl_em_rate+ 
@@ -4346,7 +4287,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   union<-rbind(medias_red_BIC_1, medias_red_BIC_2,medias_red_BIC_3, medias_red_BIC_4, medias_red_BIC_5, medias_red_arbol_b, medias_red_arbol_a)
   par(cex.axis=1)
   boxplot(data=union, error~modelo) 
- 
+  
+  # Figura 42: Validación cruzada repetida (4 grupos y 10 iteraciones) en redes.
   library(viridis)
   boxplot(data=union, error~modelo, col=plasma(5))
   ggplot(union, aes(x=modelo, y=error, fill=modelo)) +
@@ -4397,6 +4339,7 @@ simple_cross_validation <- function(list_of_minbucket) {
     mutate(rmse_red =  sqrt(mean((prediccion - errores)^2)) ) %>% 
     mutate(r_cua_red = 1 - sum(error^2)/sum((errores - mean(errores))^2)) 
   
+  # Figura 43: Errores estimados en test (red_BIC_4)
   # gráfico de error real y error del modelo
   ggplot(data = eval_test_red,
          mapping = aes(x = prediccion, y = errores)) +
@@ -4498,10 +4441,10 @@ simple_cross_validation <- function(list_of_minbucket) {
   
   
   eval_test_red_party2 <- eval_test_red_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                         "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                         "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                          "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                          "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                         "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                         "house_effect_e", "wing_effect_e",   "urna_15", 
                                                          "urna_60", "urna_365", 
                                                          "errores", "party", "poll_firm", 
                                                          "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote") 
@@ -4598,8 +4541,8 @@ simple_cross_validation <- function(list_of_minbucket) {
   library(ggplot2)
   
   newggslopegraph(eval_test_red_party, date_elec, prediccion_de_partido, party,
-                  Title = "Evolución del PIB",
-                  SubTitle = "1970-1979",
+                  Title = "Evolución de las estimaciones de voto",
+                  SubTitle = "1982-2019",
                   Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
     DataLabelPadding = 0.2,
   DataLabelLineSize = 0.5,
@@ -4613,8 +4556,8 @@ simple_cross_validation <- function(list_of_minbucket) {
                                 "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
   theme(legend.position = "none")
 
-eval_test_red_party <- eval_test_red_party%>% filter(!(party == "EH.BILDU" ),)
 
+  # Figura 44: Predicción en test del % de voto por partido (red_BIC_4), últimas 4 carrera
 carreras <- split(eval_test_red_party, eval_test_red_party$date_elec)
 eval_test_red_party_2019_11 <-carreras[["2019-11-10"]]
 
@@ -4765,7 +4708,7 @@ comparativa_test_red
       AND n > 30
       AND n_days_field >= 4
                         ')
-  
+  # Figura 45: Estimaciones para las elecciones de 2023 (red_BIC_4)
   eval_test_red_2023_party<-eval_test_red_2023_graf[!duplicated(eval_test_red_2023_graf), ]
   eval_test_red_2023_party <- select(eval_test_red_2023, party, est_real_vote)
   eval_test_red_2023_party <- group_by(eval_test_red_2023_party, party) 
@@ -5053,9 +4996,6 @@ comparativa_test_red
                   pch=factor(scale))) +
     geom_point(position=position_dodge(width=0.5),size=3)
   
-  
-  
-  
   # 2.3.3. SVM_pol grado 3 =============================================================
   # HIPERPARÁMETROS:
   SVMgrid<-expand.grid(C=c(0.5, 10),
@@ -5302,10 +5242,8 @@ comparativa_test_red
   # Concluimos con el mejor SVM
   best<-rbind(medias_svm_lin_1, medias_svm_pol_1, medias_svm_pol_3, medias_svm_pol_4)
   par(cex.axis=1)
-  boxplot(data=best, error~modelo) #Las observaciones fuera del boxplot (circulos) son errores outlier, o mejor dicho, errores muy anómalos para el modelo.
-  best$error<-sqrt(best$error)
-  #   cp     RMSE  Rsquared      MAE     RMSESD RsquaredSD      MAESD
-  # 1  0 1.896974 0.8015885 1.098803 0.08314654 0.01508187 0.03734614
+  boxplot(data=best, error~modelo) #Las observaciones fuera del boxplot (circulos) son errores outlier, o mejor dicho, errores muy anómalos para el modelo
+  # Figura 49: Validación cruzada repetida (4 grupos y 10 iteraciones) en SVM
   ggplot(best, aes(x=modelo, y=error, fill=modelo)) +
     geom_boxplot(outlier.colour="black", outlier.shape=1,
                  outlier.size=2) +
@@ -5359,7 +5297,7 @@ comparativa_test_red
     mutate(mae_SVM = mean(abs(prediccion - errores)) ) %>%
     mutate(rmse_SVM =  sqrt(mean((prediccion - errores)^2)) ) %>% 
     mutate(r_cua_SVM = 1 - sum(error^2)/sum((errores - mean(errores))^2)) 
-  
+  # Figura 50: Errores estimados en test (SVM_pol_3)
   # gráfico de error real y error del modelo
   ggplot(data = eval_test_SVM,
          mapping = aes(x = prediccion, y = errores)) +
@@ -5461,10 +5399,10 @@ comparativa_test_red
   
   
   eval_test_SVM_party2 <- eval_test_SVM_party %>% select("year_elec", "n_days_field", "days_to_elec", "porc_surveys_firm", 
-                                                             "n", "exit_poll", "est_surv_vote", "prom_general_partido", "prom_general_wing", 
+                                                             "n",  "est_surv_vote", "prom_general_partido", "prom_general_wing", 
                                                              "prom_casa_partido", "prom_casa_wing", "prom_carrera_partido", 
                                                              "prom_carrera_wing", "prom_carrera_casa_partido", "prom_carrera_casa_wing", 
-                                                             "house_effect_e", "wing_effect_e", "urna_0", "urna_7", "urna_15", 
+                                                             "house_effect_e", "wing_effect_e",   "urna_15", 
                                                              "urna_60", "urna_365", 
                                                              "errores", "party", "poll_firm", 
                                                              "lead_party", "lead2_party", "gov_pre", "error", "real_vote", "est_real_vote") 
@@ -5562,8 +5500,8 @@ comparativa_test_red
   library(ggplot2)
   
   newggslopegraph(eval_test_SVM_party, date_elec, prediccion_de_partido, party,
-                  Title = "Evolución del PIB",
-                  SubTitle = "1970-1979",
+                  Title = "Evolución de las estimaciones de voto",
+                  SubTitle = "1982-2019",
                   Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
                   DataLabelPadding = 0.2,
                   DataLabelLineSize = 0.5,
@@ -5577,8 +5515,7 @@ comparativa_test_red
                                   "darkmagenta", "#FF3E96",  "green2", "limegreen"))+
     theme(legend.position = "none")
   
-  eval_test_SVM_party <- eval_test_SVM_party%>% filter(!(party == "EH.BILDU" ),)
-  
+  # Figura 51: Predicción en test del % de voto por partido (SVM_pol_3), últimas 4 carreras
   carreras <- split(eval_test_SVM_party, eval_test_SVM_party$date_elec)
   eval_test_SVM_party_2019_11 <-carreras[["2019-11-10"]]
   
@@ -5732,6 +5669,8 @@ comparativa_test_red
   
   eval_test_SVM_2023_party <- eval_test_SVM_2023_party %>% 
     summarise(prediccion_de_partido = mean(est_real_vote, na.rm = TRUE))
+  
+  # Figura 52: Estimaciones para las elecciones de 2023 (SVM_pol_3)
   ggplot() +
     geom_col(data = eval_test_SVM_2023_graf %>% group_by(party) %>% 
                summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%

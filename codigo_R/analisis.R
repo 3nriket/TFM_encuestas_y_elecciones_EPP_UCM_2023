@@ -1,3 +1,5 @@
+# Enste scpt disponemos algunos los recursos graficados en el proyecto y ootros adcionales. 
+# Al zar varias tablas, se procede a una série de modificaciones para sacar la tabla final en muchos casos. 
 semma <- read_csv("EXPORTADO/semma.csv")
 colnames(semma)[16] = "errores"
 
@@ -7,7 +9,7 @@ print(semma%>% glimpse())
 print(semma%>% skim())
 
 
-# PROMEDIO DE ENCUESTAS: Factores de sesgo =====================================
+# Figura 11. Estimaciones de voto y factores de sesgo (segundas elecciones del 2019, PSOE) =====================================
 ggplot(semma %>% 
          filter(as_date(date_elec) == "2019-11-10") %>% 
          # filter(poll_firm == "CIS") %>%
@@ -28,7 +30,7 @@ ggplot(semma %>%
              linetype = 2,
              color = "orange")
 
-# PROMEDIO DE ENCUESTAS: Rangos de evaluación ==================================
+# Figura 12: Días para las elecciones y rangos de evaluación ==================================
 ggplot(semma) +  geom_bar(aes(x = days_to_elec))+ 
   labs(title = "Análisis de ventanas temporales",
        subtitle =
@@ -47,7 +49,7 @@ ggplot(semma) +  geom_bar(aes(x = days_to_elec))+
 
 
 
-# PROMEDIO DE ENCUESTAS: WING EFFECT ===========================================
+# Figura 13: wing_effect_e de las encuestadoras (Carrera del 2019-11-10) ===========================================
 # Color basado en valor
 analisis_house_effect <- semma %>% 
   filter(date_elec == ymd("2019-11-10"), ) %>%
@@ -73,21 +75,23 @@ ggplot(analisis_house_effect,
         panel.grid.minor = element_line(colour = "gray92"),
         legend.position = "bottom", legend.direction = "horizontal")
 
-# PROMEDIO DE ENCUESTAS: Efecto de los promedios sobre las estimaciones de voto ===========================================
+# Figura 14: Ejemplo del efecto de promedios sobre las estimaciones (Carrera del 2019-11-10) ===========================================
 analisis_promedios <- semma [ , 
-                   c( "year_elec",  "est_surv_vote" , 
-                      "real_vote", "date_elec", "party", "wing", 
-                      "poll_firm", "prom_general_partido", "prom_carrera_partido", 
-                      "prom_casa_partido", "prom_carrera_casa_partido", "house_effect_e"
-                   )]
+                              c( "year_elec",  "est_surv_vote" , 
+                                 "real_vote", "date_elec", "party", "wing", 
+                                 "poll_firm", "prom_general_partido", "prom_carrera_partido", 
+                                 "prom_casa_partido", "prom_carrera_casa_partido", "house_effect_e", "days_to_elec"
+                              )]
+
 analisis_promedios <- analisis_promedios %>% 
   filter(date_elec == ymd("2019-11-10"), )
+
 analisis_promedios <- sqldf('
       SELECT *
       FROM analisis_promedios
       WHERE poll_firm = "CIS"
-      OR poll_firm = "SOCIOMÉTRICA"
       OR poll_firm = "NC_REPORT"
+      OR poll_firm = "SOCIOMÉTRICA"
                       ')
 analisis_promedios <- sqldf('
       SELECT *
@@ -99,28 +103,54 @@ analisis_promedios <- sqldf('
       OR party = "PP"
                       ')
 analisis_promedios2 <- analisis_promedios [ , 
-                              c("party", "poll_firm", "prom_carrera_partido", 
-                                "prom_carrera_casa_partido"
-                              )]
+                                            c("party", "poll_firm", 
+                                              "prom_carrera_partido", 
+                                              "prom_carrera_casa_partido"
+                                            )]
+
 analisis_promedios2<-analisis_promedios2[!duplicated(analisis_promedios2), ]
 
-ggplot() +
-  geom_col(data=analisis_promedios,aes(party, prom_carrera_partido, color=party, fill=party), position="dodge")+
-  geom_jitter(data=analisis_promedios, 
-              aes(x=party, y=est_surv_vote, 
-                  shape = poll_firm ), 
-  ) +
-  geom_jitter(data=analisis_promedios2, 
-              aes(x=party, y=prom_carrera_casa_partido, 
-                  shape = poll_firm ), color = "#4876FF", size = 5 , 
-              ) +
-  geom_point(data=analisis_promedios, 
-              aes(x=party, y=real_vote), fill = "red", color = "white", shape = 22, size = 5)+
-  theme_grey()+
-  labs(caption = "Los cuadros rojos representan el resultado real, las barras son el promedio de mercado, las formas azules el promedio por casa y los puntos negros las estimaciones por encuesta.")
-  
+library(tidyverse)
+analisis_promedios <- read_csv("./analisis_promedios.csv")
 
-# SEMMA: variables objetivo ========================================
+theme_set(theme_minimal())
+theme_update(plot.title = element_text(size = 21, family = "bold"),
+             plot.subtitle = element_text(size = 18, family = "bold"),
+             plot.caption = element_text(size = 15))
+ggplot() +
+  geom_col(data = analisis_promedios %>% group_by(year_elec, party) %>% 
+             summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+             mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+           aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+  geom_jitter(data = analisis_promedios 
+              # %>%  filter(days_to_elec > 60)
+              ,
+              aes(x = party, y = est_surv_vote, fill = party),
+              width = 0.2,
+              shape = 21, color = "grey", size = 2,
+              alpha = 0.95, show.legend = FALSE) +
+  geom_crossbar(data = analisis_promedios %>% group_by(year_elec, party) %>% 
+                  summarise(est_surv_vote = mean(est_surv_vote),
+                            real_vote = real_vote) %>% ungroup() %>%
+                  mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)) %>% 
+                  distinct(year_elec, party, .keep_all = TRUE),
+                aes(x = party, y = real_vote, ymin = real_vote, ymax = real_vote,
+                    color = party), size = 0.3, width = .4, show.legend = FALSE) +
+  geom_point(data=analisis_promedios, 
+             aes(x = party, y = prom_carrera_casa_partido, fill = party),
+             color = "black", shape = 21, size = 1.5, alpha = 1, show.legend = FALSE)+
+  scale_y_continuous(breaks = seq(0, 35, by = 5),
+                     labels = scales::label_percent(scale = 1)) +
+  scale_fill_manual(values =
+                      c("#f70000", "#0b4a94", "#875786", "#fc4600", "#4DCB1E")) + #color del partido 
+  scale_color_manual(values =
+                       c("#f70000", "#0b4a94", "#875786", "#fc4600", "#4DCB1E")) + #color del partido 
+  facet_wrap(~poll_firm)  +
+  theme_minimal() +
+  labs(x = "Partido político", y = "Porcentaje de voto estimado",
+       fill = "Partidos",
+       caption = "Autor: Enric Palau Payeras")
+# Figura 15: Errores, estimaciones de voto y voto real (distribución en el histórico) ========================================
 ggplot(semma) + 
   geom_histogram(aes(x = errores))+ #distribución del error en todo el histórico
   
@@ -133,51 +163,170 @@ ggplot(semma) +
 
 
 
-# PROMEDIOS PARTIDOS PRINCIPALES ========================================
-
-analisis_psoe <- semma %>% 
-  filter(date_elec == ymd("2019-04-28"), ) %>%
-  filter(party == "PSOE" ) #%>%
-# filter(poll_firm == "CIS" )
-analisis_pp <- semma %>% 
-  filter(date_elec == ymd("2019-04-28"), ) %>%
-  filter(party == "PP" ) #%>%
-# filter(poll_firm == "CIS" )
-analisis_VOX <- semma %>% 
-  filter(date_elec == ymd("2019-04-28"), ) %>%
-  filter(party == "VOX" ) #%>%
-# filter(poll_firm == "CIS" )
-analisis_UP <- semma %>% 
-  filter(date_elec == ymd("2019-04-28"), ) %>%
-  filter(party == "UP" ) #%>%
-# filter(poll_firm == "CIS" )
-analisis_CS <- semma %>% 
-  filter(date_elec == ymd("2019-04-28"), ) %>%
-  filter(party == "CS" ) #%>%
-# filter(poll_firm == "CIS" )
-
-psoevspp<-rbind(analisis_psoe, analisis_pp, analisis_UP, analisis_VOX, analisis_CS)
-
-ggplot(psoevspp 
-       %>% 
-       #   filter(as_date(date_elec) == "2019-04-28") %>% 
-         filter(poll_firm == "CIS")
-       ,
-       aes(x=(as_date(date_elec) - days_to_elec), 
-           y= est_surv_vote,
-           size = errores,
-           color = party), )+
-  geom_point()+ 
-  # scale_x_date(date_breaks= "4 month")+
-  geom_smooth()  + 
-  theme(axis.text.x = element_text(size = 6)) +
-  labs(x = "Fecha") #+
-  # geom_vline(xintercept = as_date("2019-04-20"),
-  #            linetype = 2,
-  #            color = "orange")
+# Figura 16: Voto Real por carrera y partido (evolución sobre el histórico) ==================================================================
+# install.packages("CGPfunctions") 
+# eval_test_arbol_party<-readRDS("eval_test_arbol_party")
+library(CGPfunctions)
+newggslopegraph(eval_test_arbol_party, date_elec, real_vote, party,
+                Title = "Evolución del voto entre partidos",
+                SubTitle = "1982-2019",
+                Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
+                DataLabelPadding = 0.2,
+                DataLabelLineSize = 0.5,
+                DataLabelFillColor = "white") +
+  theme_gray() +
+  scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
+                                "palegreen3", "orange3",  "orange", "red",
+                                "grey", "yellow",  "gold3", "lightblue3", 
+                                "darkblue", "darkred",  "darkgreen", "yellow", 
+                                "darkolivegreen3", "orchid3",  "steelblue", "red",
+                                "darkmagenta", "#FF3E96",  "green2", "limegreen"
+  ))+
+  theme(legend.position = "none")
 
 
-# HISTÓRICOS ==============================================================
+
+
+# Figura 17: Ejemplo de árbol de decisión & Figura =====================================
+train_semma <- read_csv("EXPORTADO/train_semma.csv")
+arbol_5 <- rpart(errores~ ., 
+                 data = train_semma ,
+                 minbucket=150, # (complejidad) número de observaciones mínimas en cada nodo final.BAJO = sobreajuste ; ALTO = error 
+                 cp=0, # segundo término de complejidad con el que no procedemos pues no es común. Fijamos a 0. 
+                 method = "anova", # criterio de división. Con “annova” usamos F de Snedecor, prioriza la variable que hace variar más la media de la variable dependiente.
+                 maxsurrogate=0 # si no hay muchos missings, a 0 enseña solo las variables que participan
+)
+# Ilustramos el árbol
+par(cex=1)
+rpart.plot(arbol_5,
+           extra=1,
+           tweak=1.1,
+           nn=TRUE
+)
+# Figura 18: Filtro de variables, ejemplo árbol de decisión =====================================
+train_semma <- read_csv("EXPORTADO/train_semma.csv")
+arbol_5 <- rpart(errores~ ., 
+                 data = train_semma ,
+                 minbucket=150, # (complejidad) número de observaciones mínimas en cada nodo final.BAJO = sobreajuste ; ALTO = error 
+                 cp=0, # segundo término de complejidad con el que no procedemos pues no es común. Fijamos a 0. 
+                 method = "anova", # criterio de división. Con “annova” usamos F de Snedecor, prioriza la variable que hace variar más la media de la variable dependiente.
+                 maxsurrogate=0 # si no hay muchos missings, a 0 enseña solo las variables que participan
+)
+# Ilustramos Importancia de las variables
+imp_arbol_5 <-arbol_5$variable.importance
+imp_data_arbol_5 <- as.data.frame(imp_arbol_5)
+dput(rownames(imp_data_arbol_5)) #lista de variables a insertar en vc_rep
+
+imp_data <- tibble::rownames_to_column(imp_data_arbol_5, "Variables") %>% arrange(desc(imp_arbol_5))
+imp_data %>%
+  mutate(Variables = fct_reorder(as.factor(Variables), imp_arbol_5)) %>%
+  ggplot( aes(x=Variables, y=imp_arbol_5)) +
+  theme(text = element_text(family = "ban", size=15))+
+  geom_bar(stat="identity", fill="#3D74CF", alpha=.6, width=.4)+
+  theme_grey()+
+  coord_flip()
+# Figura 54: Casas, encuestas, promedios y modelos; Evaluación en test =============================================
+library(tidyverse)
+analisis_promedios <- read_csv("./analisis_promedios.csv")
+analisis_promedios2 <- read_csv("./analisis_promedios2.csv")
+eval2_test_SVM_party_2019_11 <- read_csv("./eval2_test_SVM_party_2019_11.csv")
+analisis_promedios <- semma [ , 
+                              c( "year_elec",  "est_surv_vote" , 
+                                 "real_vote", "date_elec", "party", "wing", "days_to_elec",
+                                 "poll_firm", "prom_general_partido", "prom_carrera_partido", 
+                                 "prom_casa_partido", "prom_carrera_casa_partido", "house_effect_e"
+                              )]
+analisis_promedios <- analisis_promedios %>% 
+  filter(date_elec == ymd("2019-11-10"), )
+analisis_promedios <- analisis_promedios %>% 
+  filter(days_to_elec < 60 )
+analisis_promedios <- sqldf('
+      SELECT *
+      FROM analisis_promedios
+      WHERE poll_firm = "SIGMA_DOS"
+      OR poll_firm = "GAD3"
+      OR poll_firm = "SOCIOMÉTRICA"
+        ')
+analisis_promedios <- sqldf('
+      SELECT *
+      FROM analisis_promedios
+      WHERE party = "PSOE"
+      OR party = "CS"
+      OR party = "UP"
+      OR party = "VOX"
+      OR party = "PP"
+        ')
+analisis_promedios2 <- analisis_promedios [ , 
+                                            c("party", "poll_firm", 
+                                              "real_vote", "est_surv_vote",
+                                              "prom_carrera_partido", 
+                                              "prom_carrera_casa_partido"
+                                            )]
+analisis_promedios2<-analisis_promedios2[!duplicated(analisis_promedios2), ]
+eval2_test_SVM_party_2019_11 <- sqldf('
+      SELECT *
+      FROM eval2_test_SVM_party_2019_11
+      WHERE party = "PSOE"
+      OR party = "CS"
+      OR party = "UP"
+      OR party = "VOX"
+      OR party = "PP"
+        ')
+mae(analisis_promedios2$est_surv_vote, analisis_promedios2$real_vote) #2.076238
+mae(eval2_test_SVM_party_2019_11$prediccion_de_partido, eval2_test_SVM_party_2019_11$real_vote) #2.076238
+mae(analisis_promedios2$prom_carrera_partido, analisis_promedios2$real_vote) #2.076238
+gad3_mae <- analisis_promedios2 %>%  filter(poll_firm == "GAD3") %>% mutate(error = abs(est_surv_vote - real_vote))
+gad3_mae$maes<-mae(gad3_mae$est_surv_vote, gad3_mae$real_vote) #2.023529
+SIGMA_DOS_mae <- analisis_promedios2 %>%  filter(poll_firm == "SIGMA_DOS") %>% mutate(error = abs(est_surv_vote - real_vote))
+mae(SIGMA_DOS_mae$est_surv_vote, SIGMA_DOS_mae$real_vote) #2.1
+SIGMA_DOS_mae$maes<-mae( SIGMA_DOS_mae$est_surv_vote, SIGMA_DOS_mae$real_vote) #2.023529
+SOCIOMÉTRICA_mae <- analisis_promedios2 %>%  filter(poll_firm == "SOCIOMÉTRICA") %>% mutate(error = abs(est_surv_vote - real_vote))
+SOCIOMÉTRICA_mae$maes<-mae( SOCIOMÉTRICA_mae$est_surv_vote, SOCIOMÉTRICA_mae$real_vote) #2.023529
+
+theme_set(theme_minimal())
+theme_update(plot.title = element_text(size = 21, family = "bold"),
+             plot.subtitle = element_text(size = 18, family = "bold"),
+             plot.caption = element_text(size = 15))
+ggplot() +
+  geom_col(data = analisis_promedios %>% group_by(year_elec, party) %>% 
+             summarise(est_surv_vote = mean(est_surv_vote)) %>% ungroup() %>%
+             mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)),
+           aes(x = party, y = est_surv_vote, fill = party), alpha = 0.7) + #voto del partido 
+  geom_jitter(data = analisis_promedios,
+              aes(x = party, y = est_surv_vote, fill = party),
+              width = 0.2,
+              shape = 21, color = "white", size = 2,
+              alpha = 0.95, show.legend = FALSE) +
+  geom_crossbar(data = analisis_promedios %>% group_by(year_elec, party) %>% 
+                  summarise(est_surv_vote = mean(est_surv_vote),
+                            real_vote = real_vote) %>% ungroup() %>%
+                  mutate(party = fct_reorder(party, est_surv_vote, .desc = TRUE)) %>% 
+                  distinct(year_elec, party, .keep_all = TRUE),
+                aes(x = party, y = real_vote, ymin = real_vote, ymax = real_vote,
+                    color = party), size = 0.3, width = .4, show.legend = FALSE) +
+  geom_point(data = eval2_test_SVM_party_2019_11, 
+             aes(x = party, y = prediccion_de_partido, fill = party),
+             color = "black", shape = 21, size = 1.5, alpha = 1, show.legend = FALSE)+
+  scale_y_continuous(breaks = seq(0, 35, by = 5),
+                     labels = scales::label_percent(scale = 1)) +
+  scale_fill_manual(values =
+                      c("#f70000", "#0b4a94", "#875786", "#4DCB1E", "#fc4600")) + #color del partido 
+  scale_color_manual(values =
+                       c("#f70000", "#0b4a94", "#875786", "#4DCB1E", "#fc4600")) + #color del partido 
+  # facet_wrap(~poll_firm) +
+  theme_minimal() +
+  labs(x = "Partido político", y = "Porcentaje de voto estimado",
+       fill = "Partidos",
+       title = "Estimación de voto (rango de 2 meses)",
+       caption = "Autor: Enric Palau Payeras")
+library(Metrics)
+mae(analisis_promedios$prom_carrera_partido, analisis_promedios$real_vote)
+mae(eval2_test_SVM_party_2019_11$prediccion_de_partido, eval2_test_SVM_party_2019_11$real_vote)
+# Otros gráficos no documentados  ====================================
+
+
+#  1. histórico de los mayores partidos
+
 
 analisis_psoe <- semma %>% 
 # filter(date_elec == ymd("2019-04-28"), ) %>%
@@ -213,7 +362,9 @@ ggplot(psoevspp
   labs(x = "Fecha")
 
 
-# HISTÓRICOS ==============================================================
+
+#  2. histórico de los mayores partidos (barras de voto entre PP y PSOE)
+
 
 
 semmaa<-semma %>% filter(party== "PP") %>% filter(party=="PSOE")
@@ -228,32 +379,6 @@ semma_anal <- sqldf('
       FROM semmaaa
       WHERE party = "PSOE" 
       OR party = "PP"')
-distrib_barras <-
-  ggplot(semma_anal,
-         aes(y = real_vote, x = as.factor(year_elec), fill = party)) +
-  # position = "fill" para que sean de igual tamaño las barras
-  geom_bar(position = "fill", stat = "identity", width = 0.8) +
-  # Barras horizontales
-  coord_flip() +
-  # Escala de colores (orden alfabético de los partidos)
-  scale_fill_manual(values = c("#40A7F1", "#F15858"),
-                    labels = c("PP", "PSOE")) +
-  # Eje y con el año de la elección
-  theme(axis.text.y = element_text(size = 11)) +
-  # Leyenda, título (colores bandera alemania) y subtítulo
-  labs(fill = "party",
-       title = paste0("<span style = 'color:#dd1f00'>ELECCIONES</span> ",
-                      "<span style = 'color:#ffce01'>GENERALES</span> ",
-                      "<span style = 'color:#dd1f00'>DE ESPAÑA</span>"),
-       subtitle = paste0()) +
-  theme(
-    # título con element_markdown para el html con colores
-    plot.title = element_markdown(size = 16, face = "bold", color = "black",
-                                  family = "titillium", hjust = 0.5),
-    # subtítulo
-    plot.subtitle = element_text(size = 1, color = "grey20",
-                                 family = "titillium", hjust = 0.5))
-distrib_barras
 
 distrib_barras <-
   ggplot(semma_anal,
@@ -282,22 +407,11 @@ distrib_barras <-
                                  family = "titillium", hjust = 0.5))
 distrib_barras
 
-ggplot(semma 
-       # %>% 
-       #   filter(as_date(date_elec) == "2019-04-28") %>% 
-       #   filter(poll_firm == "CIS")
-       ,
-       aes(x=(as_date(date_elec) - days_to_elec), 
-           y= prom_carrera_partido,
-           # shape = poll_firm,
-           color = party), )+
-  geom_line()+ 
-  geom_dotplot()+
-  theme(axis.text.x = element_text(size = 6)) +
-  labs(x = "Fecha")
 
 
-# EXPLORE ==============================================================
+#  3. Principales partidos desde 2016
+
+
 
 split_semma<-rbind(test_semma, train_semma, test_2023)
 split_semma_party <- split_semma %>% #reagrupar partits y casas 
@@ -450,7 +564,7 @@ semma_id <- sqldf('
 library(tidyverse)
 library(ggbump)
 
-semma_evo <- train_semma %>% #reagrupar partits y casas 
+semma_evo <- train_semma %>% #reagrupar partidos y casas 
   mutate(party =
            case_when(str_detect(party_UP, "1") ~ "UP",
                      str_detect(party_CS, "1") ~ "CS",
@@ -489,215 +603,8 @@ ggplot(semma_evo %>%
   scale_color_brewer(palette = "RdBu")
 
 
-# MAE's DE LAS TOP ==================================================================
-analisis_promedios <- semma [ , 
-                              c( "year_elec",  "est_surv_vote" , 
-                                 "real_vote", "date_elec", "party", "wing", 
-                                 "poll_firm", "prom_general_partido", "prom_carrera_partido", 
-                                 "prom_casa_partido", "prom_carrera_casa_partido", "house_effect_e", "days_to_elec"
-                              )]
 
-analisis_promedios <- analisis_promedios %>% 
-  filter(date_elec == ymd("2019-11-10"), )
-
-analisis_promedios <- sqldf('
-      SELECT *
-      FROM analisis_promedios
-      WHERE poll_firm = "CIS"
-      OR poll_firm = "NC_REPORT"
-      OR poll_firm = "SOCIOMÉTRICA"
-                      ')
-analisis_promedios <- sqldf('
-      SELECT *
-      FROM analisis_promedios
-      WHERE party = "PSOE"
-      OR party = "CS"
-      OR party = "UP"
-      OR party = "VOX"
-      OR party = "PP"
-                      ')
-analisis_promedios2 <- analisis_promedios [ , 
-                                            c("party", "poll_firm", 
-                                              "prom_carrera_partido", 
-                                              "prom_carrera_casa_partido"
-                                            )]
-
-analisis_promedios2<-analisis_promedios2[!duplicated(analisis_promedios2), ]
-
-ggplot() +
-  geom_col(data=analisis_promedios,aes(party, real_vote, fill=party), position="dodge")+  
-  scale_fill_manual(values = c("#CD8500", "#009ACD", "#CD3700", "#B452CD", "#00CD00" ))+
-  geom_jitter(data=analisis_promedios, 
-              aes(x=party, y=est_surv_vote, 
-                  shape = poll_firm, size = days_to_elec), 
-  ) +
-  geom_jitter(data=analisis_promedios2, 
-              aes(x=party, y=prom_carrera_casa_partido, 
-                  shape = poll_firm ), color = "#48D1CC", size = 5 , 
-  ) +
-  geom_point(data=analisis_promedios, 
-             aes(x=party, y=prom_carrera_partido), fill = "lightcoral", color = "black", shape = 22, size = 5)+
-  theme_grey()+
-  labs(caption = "Los cuadros rojos representan el resultado real, las barras son el promedio de mercado, las formas azules el promedio por casa y los puntos negros las estimaciones por encuesta.")+
-  labs(caption = "En negro, las encuestas, azul los promedios de casa por partido, rojo el promedio de mercado y el voto real equivale a las columnas") + theme(plot.caption = element_text(size = 15))
-# MAE's DE LAS TOP vs US ==================================================================
-analisis_promedios <- semma [ , 
-                              c( "year_elec",  "est_surv_vote" , 
-                                 "real_vote", "date_elec", "party", "wing", 
-                                 "poll_firm", "prom_general_partido", "prom_carrera_partido", 
-                                 "prom_casa_partido", "prom_carrera_casa_partido", "house_effect_e"
-                              )]
-
-analisis_promedios <- analisis_promedios %>% 
-  filter(date_elec == ymd("2019-11-10"), )
-analisis_promedios <- sqldf('
-      SELECT *
-      FROM analisis_promedios
-      WHERE poll_firm = "SIGMA_DOS"
-      OR poll_firm = "GAD3"
-      OR poll_firm = "SOCIOMÉTRICA"
-                      ')
-analisis_promedios <- sqldf('
-      SELECT *
-      FROM analisis_promedios
-      WHERE party = "PSOE"
-      OR party = "CS"
-      OR party = "UP"
-      OR party = "VOX"
-      OR party = "PP"
-                      ')
-analisis_promedios2 <- analisis_promedios [ , 
-                                            c("party", "poll_firm", 
-                                              "prom_carrera_partido", 
-                                              "prom_carrera_casa_partido"
-                                            )]
-
-analisis_promedios2<-analisis_promedios2[!duplicated(analisis_promedios2), ]
-# eval2_test_SVM_party_2020_04 <-sqldf('
-#       SELECT *
-#       FROM eval_test_SVM_party_2019_04
-#       WHERE party = "PSOE"
-#       OR party = "CS"
-#       OR party = "UP"
-#       OR party = "VOX"
-#       OR party = "PP"
-#                   ')
-eval2_test_SVM_party_2019_11 <- sqldf('
-      SELECT *
-      FROM eval_test_SVM_party_2019_11
-      WHERE party = "PSOE"
-      OR party = "CS"
-      OR party = "UP"
-      OR party = "VOX"
-      OR party = "PP"
-                  ')
-
-
-ggplot() +
-  geom_col(data=analisis_promedios,aes(party, real_vote, fill=party), position="dodge") + #voto del partido 
-  scale_fill_manual(values = c("#CD8500", "#009ACD", "#CD3700", "#B452CD", "#00CD00" ))+ #color del partido 
-  geom_jitter(data=analisis_promedios, 
-              aes(x=party, y=est_surv_vote, 
-                  shape = poll_firm,), #encuestas individuales (puntos negros)
-  ) +
-  geom_jitter(data=analisis_promedios2, 
-              aes(x=party, y=prom_carrera_casa_partido, 
-                  shape = poll_firm ), color = "#48D1CC", size = 5 , #promedio de la casa (punto azul)
-  ) +
-  geom_point(data=analisis_promedios, 
-             aes(x=party, y=prom_carrera_partido), fill = "lightcoral", color = "black", shape = 22, size = 5)+ #promedio de mercado del partido (punto rojo)
-  geom_point(data=eval2_test_SVM_party_2019_11, 
-              aes(x=party, y=prediccion_de_partido), fill = "#3CB371", color = "black", shape = 22, size = 5, alpha = 0.9)+ #predicción de nuestro modelo(punto verde)
-  theme_grey()+
-  labs(caption = "En verde, nuestra predicción, el promedio por casa en azul, en negro las encuestas y el voto real es la barra.") + theme(plot.caption = element_text(size = 15))
- 
-# SERIE TEMPORAL DEL VOTO ==================================================================
-# install.packages("CGPfunctions") 
-# eval_test_arbol_party<-readRDS("eval_test_arbol_party")
-library(CGPfunctions)
-newggslopegraph(eval_test_arbol_party, date_elec, real_vote, party,
-                Title = "Evolución del voto entre partidos",
-                SubTitle = "1982-2019",
-                Caption =  "Autor: Enric Palau Payeras | Datos: Spanish elections dataset",
-                DataLabelPadding = 0.2,
-                DataLabelLineSize = 0.5,
-                DataLabelFillColor = "white") +
-  theme_gray() +
-  scale_color_manual(values = c("firebrick3", "#6CA6CD", "pink", "#FF7F00", 
-                                "palegreen3", "orange3",  "orange", "red",
-                                "grey", "yellow",  "gold3", "lightblue3", 
-                                "darkblue", "darkred",  "darkgreen", "yellow", 
-                                "darkolivegreen3", "orchid3",  "steelblue", "red",
-                                "darkmagenta", "#FF3E96",  "green2", "limegreen"
-                                ))+
-  theme(legend.position = "none")
-
-
-
-# OTROS GRÁFICOS ==================================================================
-print(semma%>% skim())
-
-ggplot(semma) + 
-  geom_histogram(aes(x = est_surv_vote))+
-  facet_grid(year_elec~.)
-
-ggplot(prom_casa_partido) + 
-  geom_histogram(aes(x = prom_casa_partido))
-
-ggplot(semma) + 
-  geom_histogram(aes(x = real_vote))+
-  facet_grid(year_elec~.)
-
-ggplot(semma) + 
-  geom_histogram(aes(x = error))+
-  facet_grid(year_elec~.)
-
-
-partidos <- split(semma, semma$party)
-df_psoe<-partidos[["PSOE"]]
-df_pp<-partidos[["PP"]]
-ggplot(df_exp, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  facet_grid(year_elec~ 2019, )+
-  theme_minimal()
-
-
-df_psoe_pol <- split(df_psoe, df_psoe$poll_firm)
-
-
-encuestadoras <- split(semma, semma$poll_firm)
-
-ggplot(semma, aes(x=real_vote, y=est_surv_vote, size=abs(error), color = wing))+ geom_point(alpha=0.3)+
-  # facet_grid(year_elec~.)+
-  theme_minimal()
-
-ggplot(df_1982, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_1986, aes(x=real_vote, y=est_surv_vote, color=error, shape=poll_firm))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_1989, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_1993, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_1996, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2000, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2004, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2008, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2011, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2015, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2016, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2019_1, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-ggplot(df_2019_2, aes(x=real_vote, y=est_surv_vote, color=error))+ geom_point(alpha=0.3)+
-  theme_minimal()
-
-
+# 4. Intento de análisis convencional
 print(semma %>% glimpse())
 
 
@@ -916,4 +823,3 @@ aes(x=(as_date(date_elec) - days_to_elec),
   geom_line(linetype = 3,
             lwd = 1.1)
 tendencias_2019
-

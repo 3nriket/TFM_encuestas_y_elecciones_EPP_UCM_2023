@@ -23,15 +23,17 @@ library(ggthemes) # temas para tunear gráficas
 library(tidymodels) # depuración datos
 library(car) # herramientas regresión
 library(glue) # pegar texto + variables fácilmente
-library(dplyr)
-library(sas7bdat)
-library(caret)
-library(sqldf)
-library(Metrics)
-library(ggThemeAssist)
+library(dplyr) # manipùlar datos
+library(sas7bdat) # Incorporar archivos SAS
+library(caret) # paquete de modelos
+library(sqldf) # paquete para sentencias SQL
+library(Metrics) # extraer métricas
+library(ggThemeAssist) # customizar gráficos
 
 
 # ----- SCRIPTS -----
+# Estos son los básicos para obtener la base dedatos:
+
 # variables de entorno
 cat("Cargando entorno de variables...\n")
 source("./variables.R") 
@@ -87,7 +89,7 @@ national_surveys <-
 national_surveys_with_n  <-
    bind_rows(national_surveys_with_n, current_surveys_with_n)
 
-# ----- DATOS ENCUESTADORAS:PREPROCESAMOS ENCUESTAS -----
+# ----- DATOS ENCUESTADORAS: PREPROCESAMOS ENCUESTAS -----
 cat("Pivotando y preprocesando encuestas...\n")
 
 # Calculamos el número de encuestas de cada casa
@@ -156,12 +158,8 @@ national_surveys_longer <-
 # Exportamos
 # write_csv(national_surveys_longer,
 #           file = "./EXPORTADO/national_surveys_longer.csv")
-# 
-# write_csv(national_surveys_longer,
-#           file = "./EXPORTADO/base_error.csv")
 
-
-# ----- DATOS ELECTORALES -----
+# ----- DATOS ELECTORALES: CARGA FICHEROS -----
 # descarga ELECCIONES NACIONALES
 cat("Cargando datos de elecciones nacionales...\n")
 source("./national_data_elections.R")
@@ -180,13 +178,9 @@ census_national_by_year <-
 # Datos estimados (1982-2019) 
 base_error <- national_surveys_longer #renombre convencionalde la tabla
 
-######################
-# Censo por elección #
-######################
+#-A) Censo por elección -#
+
 # 1. Renombrar las variables que ya existen en la base de datos de las encuestas.
-dput(names(census_national_by_year)) 
-# c("year", "month", "census", "votes", "null_votes", "empty_votes", 
-#   "turnout")
 census_national_by_year <- census_national_by_year %>% rename(votes_census = "votes" ,
                                                               turnout_census = "turnout")
 # 2. Crear varible date_elec para join.
@@ -231,17 +225,13 @@ census_national_by_year <-
 # 3 Dejar columnas de interés
 census_national_by_year <- census_national_by_year %>% select (- (date_ym: month)) 
 
-######################
-# Voto por elección  # => variables nuevas: 
-######################
+#-B) Voto por elección -#
+
 # 1. Renombrar las variables que ya existen en la base de datos de las encuestas.
-dput(names(votes_national)) 
-# c("year", "month", "party_abbrev", "total_votes", "national_votes"
-# )
 votes_national <- votes_national %>% rename(party2 = "party_abbrev")
 
-# # 2. Crear varible date_elec para join.
-# # 2.1 Concatenamos Year y Month en date_elections => Variable nueva date_ym
+# 2. Crear varible date_elec para join.
+# 2.1 Concatenamos Year y Month en date_elections => Variable nueva date_ym
 # 2.2 Concatenamos Year y Month en census_national_by_year => Variable nueva date_ym
 votes_national <-
   votes_national %>% 
@@ -258,9 +248,7 @@ votes_national <-
 # 3 Dejar columnas de interés
 votes_national <- votes_national %>% select (- (date_ym: month)) 
 
-###########################
-# Join censo y voto real  #
-###########################
+#-C) UNIÓN DE DATOS: Join censo y voto real -#
 datos_reales <- 
   left_join(votes_national,
             census_national_by_year, 
@@ -268,7 +256,7 @@ datos_reales <-
 datos_reales <- datos_reales %>% mutate(real_vote = (national_votes/votes_census) *  100)
 print(datos_reales%>% skim())
 
-
+# Exportamos datos de encuestas (base_error) y datos electorales (datos_reales)
 # write_csv(datos_reales,
 #           file = "./EXPORTADO/datos_reales.csv")
 # write_csv(base_error,
@@ -276,7 +264,7 @@ print(datos_reales%>% skim())
 
 
 # p_real <- read_csv("EXPORTADO/datos_reales.csv")
-p_real <- datos_reales
+p_real <- datos_reales #
 p_real <- p_real  %>% rename (party = "party2")
 p_real <- p_real %>% mutate (p_date = glue("{party}_{date_elec}")) %>% 
   relocate(p_date, .before = party) 
@@ -286,7 +274,7 @@ p_error <- base_error
 p_error <- p_error %>% mutate (p_date = glue("{party}_{date_elec}")) %>% 
   relocate(p_date, .before = id_survey)
 
-
+# Unimos datos de encuestas y elecciones por identificador de partido y carrera
 base_promedios <- 
   left_join(p_error,
             p_real, 
@@ -299,12 +287,12 @@ base_promedios <- base_promedios %>% rename(date_elec = "date_elec.x" ,
 
 base_promedios <- base_promedios[!is.na(base_promedios$real_vote), ]
 
-base_promedios$real_vote <- round(base_promedios$real_vote ,digit=1) # Round off the column for 2 decimal
+base_promedios$real_vote <- round(base_promedios$real_vote ,digit=1) # Round off the column for 1 decimal
 
 # write_csv(base_promedios,
 #           file = "./EXPORTADO/base_promedios.csv")
 
-# ----- REVISION DATOS ELECTORALES Y ENCUESTAS -----
+# ----- REVISION DATOS ELECTORALES Y ENCUESTAS (creamos la variable de ala. ESTO ABRE LA POSIBILIDAD DE TRATAR EL PROBLEMA COMO CLASIFICACIÓN) -----
 # Revisamos el resumen de la base de datos
 print(base_promedios%>% skim())
 
@@ -338,7 +326,7 @@ base_promedios <- base_promedios [ ,
                                      "votes_census", #votos por elección
                                      # 3_2_ Datos de victoria  estimada
                                      "lead", "lead_party", "lead2_party", #diferencia del ganador; partido ganador; partido segundo; (ojo que no cuadran pq CS lo hemos perdio y aquí sigue)
-                                     # 3_3_ Separador (no se usan) 
+                                     # 3_3_ Separador (no se usan en este caso) ütiles si dividimos encuestas de municipio y nacionales
                                      "type_elec", "type_surv",
                                      # 3_4_ Datos básicos 
                                      "date_elec", #elección
@@ -347,7 +335,8 @@ base_promedios <- base_promedios [ ,
                                      "real_vote", #%voto real = (real_vote = (national_votes/votes_census) *  100)
                                      "est_surv_vote" #variable objetivo = %voto estimado por casa, partido y elección
                                    )]
-# Calculamos los días para la elección de 2023
+
+# Calculamos los días para la elección de 2023. Recordemos que aún no hay fecha. Partimos del supuesto de que serán como las anterios a 10 de Noviembre
 base_2023 <- base_error %>% filter(year_elec == 2023) %>%  mutate (days_to_elec = as.numeric(date_elec - field_date_end))
 base_promedios  <-
   bind_rows(base_promedios, base_2023)
@@ -381,7 +370,6 @@ print(base_promedios_wing%>% skim())
 base_promedios_wing <-  base_promedios_wing %>%  mutate (days_to_elec = as.numeric(date_elec - field_date_end))
 
 # ----- PROMEDIAR ENCUESTAS: Concepto básico; promedio simple sin rangos -----
-
 # 0.0. Con el id_survey ya tenemos el promedio (est_surv_vote) de cada encuesta (puntos del gráfico de KIKO)
 # y podemos extraer el error por encuesta
 base_promedios_wing <-
@@ -637,27 +625,6 @@ semma <-
 # write_csv(semma,
 #             file = "./EXPORTADO/semma.csv")
 
-# ----- SEMMA Sample -----
-# Variables de las que deberíamos prescindir al modelar
-semma$real_vote <- NULL
-semma$id_semma <- NULL
-semma$date_elec <- NULL
-
-# Test 2023
-test_2023 <- semma %>% filter(year_elec == 2023)
-semma <- semma %>% filter(!(year_elec == 2023),)
-# write_csv(test_2023, file = "./EXPORTADO/test_2023.csv")
-
-# Train datos 1982-2020
-set.seed(1234)
-split_semma <- initial_split(semma, prop = 0.8)
-train_semma <- training(split_semma)
-# write_csv(train_semma, file = "./EXPORTADO/train_semma.csv")
-
-# Test datos 1982-2020
-test_semma <- testing(split_semma)
-# write_csv(test_semma, file = "./EXPORTADO/test_semma.csv")
-
 # ----- SEMMA Explore -----
 # variables de entorno
 cat("Cargando entorno de gráficos...\n")
@@ -765,7 +732,6 @@ distrib_barras <-
                                  family = "titillium", hjust = 0.5))
 distrib_barras
 
-
 # ----- SEMMA MODIFY// imputaciones -----
 # Metemos nuestra depuración en otro archivo con el fin de ahorrar coste computacional.
 # Imputamos con rf, por lo que conviene tener guardados los resultados de la depuración.
@@ -781,7 +747,7 @@ semma <- semma %>% filter(!(year_elec == 2023),)
 source("./met_SEMMA") #Estudio de métodos de imputación completo en met_SEMMA
 #Disponemos aquí el tratamiento final.
 
-rec_semma_arboles <-
+rec_semma <-
   recipe(data =semma, errores ~ .)  %>% 
   step_zv(all_predictors()) %>%
   step_impute_mode(all_nominal_predictors()) %>% 
@@ -792,8 +758,29 @@ rec_semma_arboles <-
                    seed_val = sample.int(10^4, 1),
                    skip = FALSE,
                    id = rand_id("impute_bag")) 
-rec_semma_arboles
-semma <- bake(rec_semma_arboles %>% prep(), new_data = NULL)
+rec_semma
+semma <- bake(rec_semma %>% prep(), new_data = NULL)
+
+# ----- SEMMA Sample -----
+# Variables de las que deberíamos prescindir al modelar
+semma$real_vote <- NULL
+semma$id_semma <- NULL
+semma$date_elec <- NULL
+
+# Test 2023
+test_2023 <- semma %>% filter(year_elec == 2023)
+semma <- semma %>% filter(!(year_elec == 2023),)
+# write_csv(test_2023, file = "./EXPORTADO/test_2023.csv")
+
+# Train datos 1982-2020
+set.seed(1234)
+split_semma <- initial_split(semma, prop = 0.8)
+train_semma <- training(split_semma)
+# write_csv(train_semma, file = "./EXPORTADO/train_semma.csv")
+
+# Test datos 1982-2020
+test_semma <- testing(split_semma)
+# write_csv(test_semma, file = "./EXPORTADO/test_semma.csv")
 
 # ----- SEMMA Model -----
 # Para este archivo "main" sólo exponemos nuestros modelos en test.
@@ -964,11 +951,6 @@ ggplot(eval_test_arbol_2023_party, aes(x="", y=prediccion_de_partido, fill=parti
   theme_void() +
   labs(title = "% de voto en las elecciones de 2023")+ 
   theme(plot.title = element_text(face = "bold"))
-
-
-
-
-
 
 #### Bagging y RF ####
 rf_ganador <- randomForest(errores~., 
@@ -1287,8 +1269,9 @@ ggplot(eval_test_gbm_2023_party, aes(x="", y=prediccion_de_partido, fill=partido
   theme_void() +
   labs(title = "% de voto en las elecciones de 2023 (gbm_5)")+ 
   theme(plot.title = element_text(face = "bold"))
-#### Métodos de selección de variables ####
-# Esta parte fue realizada en SAS pero ofrecemos un ejemplo de Boruta, AIC y BIC en R
+#### Regresiones AIC BIC BORUTA (selección de variables) ####
+# Esta parte fue realizada en SAS, pero ofrecemos un ejemplo de Boruta, AIC y BIC en R
+# Ir a la carpeta de ódigos SAS para ver el procedimiento en SAS. 
 # AIC:#
 set.seed(1234)
 full<-glm(errores~.,data = train_semma, family = gaussian(link = "identity"))
